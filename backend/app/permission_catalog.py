@@ -1,0 +1,39 @@
+ALL_PERMISSIONS = {
+    "dashboard:read": "View the business dashboard.",
+    "sales:read": "View sales and invoices.",
+    "sales:create": "Create sales and invoices.",
+    "payments:read": "View payments.",
+    "payments:create": "Record payments.",
+    "customers:read": "View customers and their permitted account details.",
+    "customers:manage": "Create and update customers.",
+    "suppliers:read": "View suppliers.",
+    "suppliers:manage": "Create and update suppliers.",
+    "inventory:read": "View products and stock.",
+    "inventory:manage": "Manage products and stock movements.",
+    "purchases:read": "View purchases.",
+    "purchases:create": "Record purchases.",
+    "expenses:read": "View expenses.",
+    "expenses:create": "Record expenses.",
+    "reports:read": "View financial reports.",
+    "staff:manage": "Manage staff accounts and permissions.",
+    "settings:read": "View business settings.",
+    "settings:manage": "Change business settings.",
+    "audit:read": "View the audit history.",
+}
+OWNER_ONLY_PERMISSIONS = {
+    "reports:read",
+    "staff:manage",
+    "settings:manage",
+    "audit:read",
+}
+STAFF_CONFIGURABLE_PERMISSION_IDS = set(ALL_PERMISSIONS) - OWNER_ONLY_PERMISSIONS
+STAFF_DEFAULT_PERMISSIONS = {
+    "dashboard:read",
+    "sales:read",
+    "sales:create",
+    "payments:read",
+    "payments:create",
+    "customers:read",
+    "customers:manage",
+    "inventory:read",
+}
