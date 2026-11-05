@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{LOCAL_DATABASE_PATH.as_posix()}"
     cookie_secure: bool = False
     cors_origins: str = "http://localhost:5173"
+    frontend_url: str = "http://localhost:5173"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_starttls: bool = True
+    mail_from: str | None = None
 
     @field_validator("app_env")
     @classmethod
@@ -31,7 +38,15 @@ class Settings(BaseSettings):
                 raise ValueError("COOKIE_SECURE must be true in production.")
             if not self.database_url.startswith("postgresql"):
                 raise ValueError("Production must use PostgreSQL.")
-        elif self.app_env != "development" and self.database_url.startswith("sqlite"):
+            if not self.smtp_host or not self.mail_from or not self.smtp_use_starttls:
+                raise ValueError("Production requires SMTP with STARTTLS and a sender address.")
+            if not self.frontend_url.startswith("https://"):
+                raise ValueError("Production FRONTEND_URL must use HTTPS.")
+        if bool(self.smtp_username) != bool(self.smtp_password):
+            raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be configured together.")
+        if not 1 <= self.smtp_port <= 65535:
+            raise ValueError("SMTP_PORT must be between 1 and 65535.")
+        if self.app_env != "development" and self.database_url.startswith("sqlite"):
             raise ValueError("SQLite is only supported for local development.")
         return self
 

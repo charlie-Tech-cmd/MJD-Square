@@ -1,12 +1,22 @@
 from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, status
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import get_db
-from app.models import AuditLog, AuthSession, LoginAttempt, User, utc_now
+from app.email_service import send_password_reset_email
+from app.models import (
+    AuditLog,
+    AuthSession,
+    LoginAttempt,
+    PasswordResetAttempt,
+    PasswordResetToken,
+    User,
+    utc_now,
+)
 from app.permissions import (
     CSRF_COOKIE,
     CSRF_COOKIE_PATH,
@@ -15,7 +25,13 @@ from app.permissions import (
     get_current_user,
     require_csrf,
 )
-from app.schemas import LoginRequest, PasswordChangeRequest, UserResponse
+from app.schemas import (
+    LoginRequest,
+    PasswordChangeRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
+    UserResponse,
+)
 from app.security import (
     DUMMY_PASSWORD_HASH,
     hash_password,
@@ -187,7 +203,7 @@ def change_password(
     if verify_password(payload.new_password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Choose a password you have not used before.",
+            detail="Choose a password different from your current password.",
         )
     user.password_hash = hash_password(payload.new_password)
     current_token = request.cookies.get(SESSION_COOKIE, "")
@@ -209,4 +225,150 @@ def change_password(
         )
     )
     db.commit()
+    return {"status": "password_updated"}
+
+
+RESET_TOKEN_LIFETIME = timedelta(minutes=30)
+RESET_REQUEST_WINDOW = timedelta(minutes=15)
+RESET_ACCOUNT_WINDOW = timedelta(hours=1)
+MAX_RESET_REQUESTS_PER_IP = 5
+MAX_RESET_TOKENS_PER_ACCOUNT = 3
+
+
+def _aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    now = utc_now()
+    client_ip = get_client_ip(request)
+
+    verify_password("password-reset-request", DUMMY_PASSWORD_HASH)
+
+    db.execute(
+        delete(PasswordResetAttempt).where(
+            PasswordResetAttempt.occurred_at < now - timedelta(days=1)
+        )
+    )
+
+    ip_count = (
+        db.scalar(
+            select(func.count(PasswordResetAttempt.id)).where(
+                PasswordResetAttempt.client_ip == client_ip,
+                PasswordResetAttempt.occurred_at >= now - RESET_REQUEST_WINDOW,
+            )
+        )
+        or 0
+    )
+
+    db.add(PasswordResetAttempt(client_ip=client_ip, occurred_at=now))
+
+    if ip_count >= MAX_RESET_REQUESTS_PER_IP:
+        db.commit()
+        return {
+            "message": "If an eligible account exists, password reset instructions will be sent."
+        }
+
+    email = str(payload.email).lower()
+    user = db.scalar(select(User).where(User.email == email))
+
+    if user is not None and user.is_active:
+        account_count = (
+            db.scalar(
+                select(func.count(PasswordResetToken.id)).where(
+                    PasswordResetToken.user_id == user.id,
+                    PasswordResetToken.created_at >= now - RESET_ACCOUNT_WINDOW,
+                )
+            )
+            or 0
+        )
+
+        if account_count < MAX_RESET_TOKENS_PER_ACCOUNT:
+            raw_token = new_token()
+            reset_token = PasswordResetToken(
+                token_hash=token_digest(raw_token),
+                user_id=user.id,
+                expires_at=now + RESET_TOKEN_LIFETIME,
+                created_at=now,
+            )
+            db.add(reset_token)
+            db.commit()
+
+            reset_url = (
+                f"{settings.frontend_url.rstrip('/')}/reset-password?"
+                f"{urlencode({'token': raw_token})}"
+            )
+            background_tasks.add_task(send_password_reset_email, email, reset_url)
+        else:
+            db.commit()
+    else:
+        db.commit()
+
+    return {"message": "If an eligible account exists, password reset instructions will be sent."}
+
+
+@router.post("/reset-password")
+def reset_password(
+    payload: PasswordResetConfirmRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    now = utc_now()
+    reset_record = db.scalar(
+        select(PasswordResetToken)
+        .where(PasswordResetToken.token_hash == token_digest(payload.token))
+        .with_for_update()
+    )
+
+    if (
+        reset_record is None
+        or reset_record.used_at is not None
+        or _aware_utc(reset_record.expires_at) <= now
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password reset link is invalid or has expired.",
+        )
+
+    user = db.scalar(select(User).where(User.id == reset_record.user_id).with_for_update())
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password reset link is invalid or has expired.",
+        )
+
+    if verify_password(payload.new_password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Choose a password you have not used before.",
+        )
+
+    user.password_hash = hash_password(payload.new_password)
+    reset_record.used_at = now
+
+    db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+    db.execute(
+        delete(PasswordResetToken).where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.id != reset_record.id,
+        )
+    )
+    db.add(
+        AuditLog(
+            actor_user_id=user.id,
+            action="auth.password_reset",
+            entity_type="user",
+            entity_id=user.id,
+            details={},
+        )
+    )
+    db.commit()
+
     return {"status": "password_updated"}

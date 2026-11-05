@@ -1,10 +1,19 @@
+from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
+from urllib.parse import parse_qs, urlparse
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, AuthSession, Role, User
-from app.security import hash_password
+from app.models import (
+    AuditLog,
+    AuthSession,
+    PasswordResetAttempt,
+    PasswordResetToken,
+    Role,
+    User,
+)
+from app.security import hash_password, token_digest, verify_password
 
 
 def create_user(
@@ -128,3 +137,200 @@ def test_password_change_invalidates_other_sessions_and_updates_credentials(clie
         json={"email": "owner@example.com", "password": "a new correct horse battery"},
     )
     assert next_login.status_code == 200
+
+
+def request_password_reset(client, email: str):
+    return client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": email},
+    )
+
+
+def test_forgot_password_response_is_generic_and_token_is_hashed(client, db_session, monkeypatch):
+    user = create_user(db_session, "Owner", "owner@example.com")
+    sent_emails = []
+
+    def capture_email(recipient: str, reset_url: str) -> None:
+        sent_emails.append((recipient, reset_url))
+
+    monkeypatch.setattr("app.api.auth.send_password_reset_email", capture_email)
+
+    unknown = request_password_reset(client, "unknown@example.com")
+    eligible = request_password_reset(client, "owner@example.com")
+
+    assert unknown.status_code == eligible.status_code == 200
+    assert unknown.json() == eligible.json()
+    assert unknown.json()["message"] == (
+        "If an eligible account exists, password reset instructions will be sent."
+    )
+    assert len(sent_emails) == 1
+    assert sent_emails[0][0] == user.email
+
+    raw_token = parse_qs(urlparse(sent_emails[0][1]).query)["token"][0]
+    stored_token = db_session.scalar(select(PasswordResetToken))
+
+    assert stored_token is not None
+    assert stored_token.user_id == user.id
+    assert stored_token.token_hash == token_digest(raw_token)
+    assert stored_token.token_hash != raw_token
+    assert stored_token.used_at is None
+
+
+def test_password_reset_updates_password_and_revokes_all_sessions(client, db_session, monkeypatch):
+    user = create_user(db_session, "Owner", "owner@example.com")
+    for _ in range(2):
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"email": user.email, "password": "correct horse battery"},
+        )
+        assert login.status_code == 200
+
+    sessions_before = db_session.scalars(
+        select(AuthSession).where(AuthSession.user_id == user.id)
+    ).all()
+    assert len(sessions_before) == 2
+
+    sent_emails = []
+    monkeypatch.setattr(
+        "app.api.auth.send_password_reset_email",
+        lambda recipient, reset_url: sent_emails.append((recipient, reset_url)),
+    )
+
+    requested = request_password_reset(client, user.email)
+    assert requested.status_code == 200
+    raw_token = parse_qs(urlparse(sent_emails[0][1]).query)["token"][0]
+
+    reset = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": raw_token,
+            "new_password": "another secure horse battery",
+        },
+    )
+
+    assert reset.status_code == 200
+    assert reset.json() == {"status": "password_updated"}
+    db_session.refresh(user)
+    assert verify_password("another secure horse battery", user.password_hash)
+    assert db_session.scalars(select(AuthSession).where(AuthSession.user_id == user.id)).all() == []
+
+    reset_record = db_session.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.token_hash == token_digest(raw_token))
+    )
+    assert reset_record is not None
+    assert reset_record.used_at is not None
+
+    audit = db_session.scalar(select(AuditLog).where(AuditLog.action == "auth.password_reset"))
+    assert audit is not None
+    assert audit.actor_user_id == user.id
+
+    assert client.get("/api/v1/auth/me").status_code == 401
+
+    next_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "another secure horse battery",
+        },
+    )
+    assert next_login.status_code == 200
+
+
+def test_password_reset_token_cannot_be_reused(client, db_session, monkeypatch):
+    user = create_user(db_session, "Owner", "owner@example.com")
+    sent_emails = []
+    monkeypatch.setattr(
+        "app.api.auth.send_password_reset_email",
+        lambda recipient, reset_url: sent_emails.append(reset_url),
+    )
+
+    request_password_reset(client, user.email)
+    raw_token = parse_qs(urlparse(sent_emails[0]).query)["token"][0]
+    payload = {
+        "token": raw_token,
+        "new_password": "another secure horse battery",
+    }
+
+    first = client.post("/api/v1/auth/reset-password", json=payload)
+    second = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": raw_token,
+            "new_password": "a different secure horse battery",
+        },
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 400
+    assert second.json()["detail"] == ("This password reset link is invalid or has expired.")
+
+
+def test_expired_password_reset_token_is_rejected(client, db_session):
+    user = create_user(db_session, "Owner", "owner@example.com")
+    raw_token = "expired-test-token-value-123456789"
+    db_session.add(
+        PasswordResetToken(
+            token_hash=token_digest(raw_token),
+            user_id=user.id,
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": raw_token,
+            "new_password": "another secure horse battery",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == ("This password reset link is invalid or has expired.")
+    db_session.refresh(user)
+    assert verify_password("correct horse battery", user.password_hash)
+
+
+def test_forgot_password_is_rate_limited_per_ip_without_revealing_accounts(client, db_session):
+    responses = [
+        request_password_reset(client, f"unknown-{index}@example.com") for index in range(6)
+    ]
+
+    assert all(response.status_code == 200 for response in responses)
+    assert len({response.json()["message"] for response in responses}) == 1
+    assert db_session.query(PasswordResetAttempt).count() == 6
+
+
+def test_forgot_password_limits_reset_tokens_per_account(client, db_session, monkeypatch):
+    user = create_user(db_session, "Owner", "owner@example.com")
+    sent_emails = []
+    monkeypatch.setattr(
+        "app.api.auth.send_password_reset_email",
+        lambda recipient, reset_url: sent_emails.append(reset_url),
+    )
+
+    responses = [request_password_reset(client, user.email) for _ in range(4)]
+
+    assert all(response.status_code == 200 for response in responses)
+    assert len(sent_emails) == 3
+    assert db_session.query(PasswordResetToken).filter_by(user_id=user.id).count() == 3
+
+
+def test_forgot_password_does_not_send_email_for_inactive_user(client, db_session, monkeypatch):
+    user = create_user(db_session, "Owner", "inactive@example.com")
+    user.is_active = False
+    db_session.commit()
+    sent_emails = []
+    monkeypatch.setattr(
+        "app.api.auth.send_password_reset_email",
+        lambda recipient, reset_url: sent_emails.append(reset_url),
+    )
+
+    response = request_password_reset(client, user.email)
+
+    assert response.status_code == 200
+    assert response.json()["message"] == (
+        "If an eligible account exists, password reset instructions will be sent."
+    )
+    assert sent_emails == []
+    assert db_session.query(PasswordResetToken).filter_by(user_id=user.id).count() == 0
