@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api, ApiError } from "../lib/api";
 import { Brand } from "./Brand";
+import { PasswordInput } from "./PasswordInput";
+import { Link } from "react-router-dom";
 
 const signInSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -81,13 +83,13 @@ export function SignInPage({ onSignedIn }: SignInPageProps) {
             </label>
             <label className="field">
               <span>Password</span>
-              <input
+              <PasswordInput
                 autoComplete="current-password"
                 placeholder="Enter your password"
-                type="password"
                 aria-invalid={Boolean(errors.password)}
                 {...register("password")}
               />
+              <Link className="auth-inline-link" to="/forgot-password">Forgot password?</Link>
               {errors.password && <small className="field-error">{errors.password.message}</small>}
             </label>
             {serverError && <p className="form-alert" role="alert">{serverError}</p>}

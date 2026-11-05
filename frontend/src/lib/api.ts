@@ -32,7 +32,8 @@ async function request<T>(
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
   if (options.body) headers.set("Content-Type", "application/json");
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && path !== "/auth/login") {
+  const csrfExemptPaths = ["/auth/login", "/auth/forgot-password", "/auth/reset-password"];
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && !csrfExemptPaths.includes(path)) {
     const csrfToken = readCsrfToken(document.cookie);
     if (!csrfToken) throw new ApiError("Your session expired. Please sign in again.", 403);
     headers.set("X-CSRF-Token", csrfToken);
@@ -76,6 +77,20 @@ export const api = {
     return request<User>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    });
+  },
+
+  requestPasswordReset(email: string): Promise<{ message: string }> {
+    return request<{ message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  resetPassword(token: string, new_password: string): Promise<{ message: string }> {
+    return request<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password }),
     });
   },
 

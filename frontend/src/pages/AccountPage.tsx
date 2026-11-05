@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiError, api } from "../lib/api";
+import { PasswordInput } from "../components/PasswordInput";
 
 const passwordSchema = z
   .object({
@@ -52,17 +53,17 @@ export function AccountPage() {
         <div className="settings-fields password-fields">
           <label className="field">
             <span>Current password</span>
-            <input autoComplete="current-password" type="password" {...form.register("current_password")} />
+            <PasswordInput autoComplete="current-password" {...form.register("current_password")} />
             {form.formState.errors.current_password && <small className="field-error">{form.formState.errors.current_password.message}</small>}
           </label>
           <label className="field">
             <span>New password</span>
-            <input autoComplete="new-password" type="password" {...form.register("new_password")} />
+            <PasswordInput autoComplete="new-password" {...form.register("new_password")} />
             {form.formState.errors.new_password && <small className="field-error">{form.formState.errors.new_password.message}</small>}
           </label>
           <label className="field">
             <span>Confirm new password</span>
-            <input autoComplete="new-password" type="password" {...form.register("confirm_password")} />
+            <PasswordInput autoComplete="new-password" {...form.register("confirm_password")} />
             {form.formState.errors.confirm_password && <small className="field-error">{form.formState.errors.confirm_password.message}</small>}
           </label>
         </div>

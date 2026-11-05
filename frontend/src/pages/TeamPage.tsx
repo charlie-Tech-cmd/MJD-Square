@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError, readCsrfToken } from "../lib/api";
 import type { RolePermissions } from "../types";
+import { PasswordInput } from "../components/PasswordInput";
 
 interface StaffAccount {
   id: string;
@@ -173,7 +174,7 @@ export function TeamPage() {
             </label>
             <label className="field">
               <span>Temporary password</span>
-              <input autoComplete="new-password" type="password" {...form.register("password")} aria-invalid={Boolean(form.formState.errors.password)} />
+              <PasswordInput autoComplete="new-password" {...form.register("password")} aria-invalid={Boolean(form.formState.errors.password)} />
               <small className="field-help">Share it securely and have the staff member change it after signing in.</small>
               {form.formState.errors.password && <small className="field-error">{form.formState.errors.password.message}</small>}
             </label>

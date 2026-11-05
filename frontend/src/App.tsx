@@ -3,6 +3,8 @@ import { LoaderCircle } from "lucide-react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { SignInPage } from "./components/SignInPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TeamPage } from "./pages/TeamPage";
@@ -46,7 +48,23 @@ export default function App() {
     );
   }
   if (!sessionQuery.data) {
-    return <SignInPage onSignedIn={() => void queryClient.invalidateQueries({ queryKey: ["session"] })} />;
+    return (
+      <Routes>
+        <Route
+          element={
+            <SignInPage
+              onSignedIn={() =>
+                void queryClient.invalidateQueries({ queryKey: ["session"] })
+              }
+            />
+          }
+          path="/"
+        />
+        <Route element={<ForgotPasswordPage />} path="/forgot-password" />
+        <Route element={<ResetPasswordPage />} path="/reset-password" />
+        <Route element={<Navigate replace to="/" />} path="*" />
+      </Routes>
+    );
   }
 
   return (

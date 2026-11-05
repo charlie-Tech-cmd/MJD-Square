@@ -37,3 +37,46 @@ describe("readCsrfToken", () => {
     expect(readCsrfToken("theme=light")).toBeNull();
   });
 });
+
+describe("password recovery API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("requests a password reset without requiring a CSRF cookie", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({
+        message: "If an eligible account exists, password reset instructions will be sent.",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.requestPasswordReset("user@example.com")).resolves.toMatchObject({
+      message: expect.any(String),
+    });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(options.headers).not.toHaveProperty("X-CSRF-Token");
+    expect(JSON.parse(options.body as string)).toEqual({
+      email: "user@example.com",
+    });
+  });
+
+  it("resets a password without requiring a CSRF cookie", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json({ message: "Password reset successfully." }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      api.resetPassword("a-valid-reset-token", "new-secure-password"),
+    ).resolves.toMatchObject({ message: expect.any(String) });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(options.headers).not.toHaveProperty("X-CSRF-Token");
+    expect(JSON.parse(options.body as string)).toEqual({
+      token: "a-valid-reset-token",
+      new_password: "new-secure-password",
+    });
+  });
+});
