@@ -30,12 +30,14 @@ def ensure_foundation_records(db: Session) -> tuple[Role, Role]:
         owner = Role(name="Owner", description="Business owner and administrator.")
         db.add(owner)
     staff = db.scalar(select(Role).where(Role.name == "Shop staff"))
-    if staff is None:
+    staff_is_new = staff is None
+    if staff_is_new:
         staff = Role(name="Shop staff", description="Limited day-to-day shop access.")
         db.add(staff)
     db.flush()
     owner.permissions = list(permissions.values())
-    staff.permissions = [permissions[name] for name in STAFF_DEFAULT_PERMISSIONS]
+    if staff_is_new:
+        staff.permissions = [permissions[name] for name in STAFF_DEFAULT_PERMISSIONS]
     if db.get(BusinessSettings, 1) is None:
         db.add(BusinessSettings(id=1))
     return owner, staff
@@ -48,12 +50,16 @@ def create_admin(email: str, full_name: str, password: str) -> None:
         raise ValueError("Password must contain between 12 and 128 characters.")
     normalized_email = str(TypeAdapter(EmailStr).validate_python(email)).lower()
     with SessionLocal() as db:
-        owner, _ = ensure_foundation_records(db)
-        existing_owner = db.scalar(select(User).where(User.role_id == owner.id))
+        existing_owner = db.scalar(
+            select(User)
+            .join(Role, User.role_id == Role.id)
+            .where(Role.name == "Owner")
+        )
         if existing_owner is not None:
             raise ValueError(
                 "An owner account already exists; create additional users through the app."
             )
+        owner, _ = ensure_foundation_records(db)
         if db.scalar(select(User).where(User.email == normalized_email)) is not None:
             raise ValueError("A user with that email address already exists.")
         user = User(
