@@ -337,7 +337,11 @@ def reset_password(
             detail="This password reset link is invalid or has expired.",
         )
 
-    user = db.scalar(select(User).where(User.id == reset_record.user_id).with_for_update())
+    user = db.scalar(
+        select(User)
+        .where(User.id == reset_record.user_id)
+        .with_for_update(of=User)
+    )
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
