@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,6 +43,37 @@ class Settings(BaseSettings):
                 raise ValueError("Production requires SMTP with STARTTLS and a sender address.")
             if not self.frontend_url.startswith("https://"):
                 raise ValueError("Production FRONTEND_URL must use HTTPS.")
+
+            origins = [origin.strip() for origin in self.cors_origins.split(",")]
+
+            if not origins or any(not origin for origin in origins):
+                raise ValueError("Production CORS_ORIGINS must contain valid HTTPS origins.")
+
+            for origin in origins:
+                try:
+                    parsed = urlsplit(origin)
+                    parsed.port
+                except ValueError as exc:
+                    raise ValueError(
+                        "Production CORS_ORIGINS contains an invalid origin."
+                    ) from exc
+
+                if (
+                    parsed.scheme != "https"
+                    or not parsed.hostname
+                    or "*" in parsed.netloc
+                    or parsed.username is not None
+                    or parsed.password is not None
+                    or parsed.path
+                    or parsed.query
+                    or parsed.fragment
+                    or any(character.isspace() for character in origin)
+                ):
+                    raise ValueError(
+                        "Production CORS_ORIGINS must contain explicit HTTPS origins "
+                        "without wildcards, credentials, paths, queries, or fragments."
+                    )
+
         if bool(self.smtp_username) != bool(self.smtp_password):
             raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be configured together.")
         if not 1 <= self.smtp_port <= 65535:
