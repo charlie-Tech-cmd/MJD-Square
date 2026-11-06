@@ -9,7 +9,7 @@ import { ApiError, api } from "../lib/api";
 import { Brand } from "../components/Brand";
 
 const schema = z.object({
-  new_password: z.string().min(8, "Use at least 8 characters.").max(128, "Password must be 128 characters or fewer."),
+  new_password: z.string().min(12, "Use at least 12 characters.").max(128, "Password must be 128 characters or fewer."),
   confirm_password: z.string().min(1, "Confirm your new password."),
 }).refine((values) => values.new_password === values.confirm_password, {
   message: "Passwords do not match.",
@@ -70,7 +70,7 @@ export function ResetPasswordPage() {
             <form className="form-stack" onSubmit={submit} noValidate>
               <label className="field">
                 <span>New password</span>
-                <PasswordInput autoComplete="new-password" placeholder="At least 8 characters" aria-invalid={Boolean(form.formState.errors.new_password)} {...form.register("new_password")} />
+                <PasswordInput autoComplete="new-password" placeholder="At least 12 characters" aria-invalid={Boolean(form.formState.errors.new_password)} {...form.register("new_password")} />
                 {form.formState.errors.new_password && <small className="field-error">{form.formState.errors.new_password.message}</small>}
               </label>
               <label className="field">

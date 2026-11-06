@@ -334,3 +334,48 @@ def test_forgot_password_does_not_send_email_for_inactive_user(client, db_sessio
     )
     assert sent_emails == []
     assert db_session.query(PasswordResetToken).filter_by(user_id=user.id).count() == 0
+
+
+
+def test_login_accepts_legacy_short_password(client, db_session):
+    create_user(db_session, "Owner", "legacy@example.com", password="x")
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "legacy@example.com", "password": "x"},
+    )
+
+    assert response.status_code == 200
+
+
+def test_password_change_rejects_password_shorter_than_12_characters(
+    client, db_session
+):
+    create_user(db_session, "Owner", "owner@example.com")
+    client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner@example.com", "password": "correct horse battery"},
+    )
+
+    response = client.put(
+        "/api/v1/auth/password",
+        headers={"X-CSRF-Token": client.cookies["mjd_csrf"]},
+        json={
+            "current_password": "correct horse battery",
+            "new_password": "12345678901",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_password_reset_rejects_password_shorter_than_12_characters(client):
+    response = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": "valid-looking-reset-token-123",
+            "new_password": "12345678901",
+        },
+    )
+
+    assert response.status_code == 422

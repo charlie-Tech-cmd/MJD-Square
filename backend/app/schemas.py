@@ -14,7 +14,7 @@ class PasswordChangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     current_password: str = Field(min_length=1, max_length=128)
-    new_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
 
 
 class PermissionResponse(BaseModel):
@@ -140,4 +140,4 @@ class PasswordResetConfirmRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     token: str = Field(min_length=20, max_length=200)
-    new_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
