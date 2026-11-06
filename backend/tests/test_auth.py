@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     AuditLog,
     AuthSession,
+    LoginAttempt,
     PasswordResetAttempt,
     PasswordResetToken,
     Role,
@@ -379,3 +380,78 @@ def test_password_reset_rejects_password_shorter_than_12_characters(client):
     )
 
     assert response.status_code == 422
+
+
+def test_login_removes_old_attempts_and_preserves_recent_attempts(
+    client, db_session
+):
+    old_attempt = LoginAttempt(
+        email="old@example.com",
+        client_ip="192.0.2.1",
+        succeeded=False,
+        occurred_at=datetime.now(UTC) - timedelta(days=2),
+    )
+    recent_attempt = LoginAttempt(
+        email="owner@example.com",
+        client_ip="testclient",
+        succeeded=False,
+        occurred_at=datetime.now(UTC) - timedelta(minutes=5),
+    )
+    db_session.add_all([old_attempt, recent_attempt])
+    db_session.commit()
+    old_id = old_attempt.id
+    recent_id = recent_attempt.id
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner@example.com", "password": "wrong password"},
+    )
+
+    assert response.status_code == 401
+    db_session.expire_all()
+    assert db_session.get(LoginAttempt, old_id) is None
+    assert db_session.get(LoginAttempt, recent_id) is not None
+
+
+def test_login_cleanup_is_committed_when_rate_limited(client, db_session):
+    create_user(db_session, "Owner", "owner@example.com")
+
+    old_attempt = LoginAttempt(
+        email="old@example.com",
+        client_ip="192.0.2.1",
+        succeeded=False,
+        occurred_at=datetime.now(UTC) - timedelta(days=2),
+    )
+    db_session.add(old_attempt)
+
+    for _ in range(5):
+        db_session.add(
+            LoginAttempt(
+                email="owner@example.com",
+                client_ip="testclient",
+                succeeded=False,
+                occurred_at=datetime.now(UTC) - timedelta(minutes=5),
+            )
+        )
+
+    db_session.commit()
+    old_id = old_attempt.id
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner@example.com",
+              "password": "correct horse battery"},
+    )
+
+    assert response.status_code == 429
+    db_session.expire_all()
+    assert db_session.get(LoginAttempt, old_id) is None
+    assert (
+        db_session.query(LoginAttempt)
+        .filter(
+            LoginAttempt.email == "owner@example.com",
+            LoginAttempt.succeeded.is_(False),
+        )
+        .count()
+        == 5
+    )

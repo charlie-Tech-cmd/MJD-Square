@@ -43,6 +43,7 @@ from app.security import (
 router = APIRouter(prefix="/auth", tags=["authentication"])
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_WINDOW = timedelta(minutes=15)
+LOGIN_ATTEMPT_RETENTION = timedelta(hours=24)
 COOKIE_PATH = "/api/v1"
 
 
@@ -61,6 +62,14 @@ def login(
 ) -> User:
     email = str(payload.email).lower()
     client_ip = get_client_ip(request)
+
+    retention_cutoff = utc_now() - LOGIN_ATTEMPT_RETENTION
+    db.execute(
+        delete(LoginAttempt).where(
+            LoginAttempt.occurred_at < retention_cutoff
+        )
+    )
+    db.commit()
     cutoff = utc_now() - LOCKOUT_WINDOW
     failed_attempts = (
         db.scalar(
