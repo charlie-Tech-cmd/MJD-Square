@@ -6,8 +6,10 @@ ALL_PERMISSIONS = {
     "payments:create": "Record payments.",
     "customers:read": "View customers and their permitted account details.",
     "customers:manage": "Create and update customers.",
+    "customers:opening_balance": "Record documented customer opening balances.",
     "suppliers:read": "View suppliers.",
     "suppliers:manage": "Create and update suppliers.",
+    "suppliers:opening_balance": "Record documented supplier opening balances.",
     "inventory:read": "View products and stock.",
     "inventory:manage": "Manage products and stock movements.",
     "purchases:read": "View purchases.",
@@ -23,6 +25,8 @@ ALL_PERMISSIONS = {
 OWNER_ONLY_PERMISSIONS = {
     "reports:read",
     "staff:manage",
+    "customers:opening_balance",
+    "suppliers:opening_balance",
     "settings:manage",
     "audit:read",
 }

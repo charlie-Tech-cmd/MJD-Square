@@ -2,9 +2,9 @@
 
 Business management for MJD Square, a Nigerian retail and wholesale business. The repository is a modular monolith: a React/Vite application calls a versioned FastAPI API, and PostgreSQL is the authoritative datastore.
 
-## What is implemented
+## Current implementation status
 
-The initial foundation includes:
+The repository contains a working local application and the core transaction slice of an operational MVP. It is not yet a complete implementation of the master blueprint and is not production-ready.
 
 - React, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, React Hook Form, and Zod.
 - FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL, and OpenAPI documentation.
@@ -12,9 +12,33 @@ The initial foundation includes:
 - Owner-managed staff accounts with least-privilege defaults and immediate account deactivation/session revocation.
 - Business profile settings for NGN, Africa/Lagos, and manually recorded payment methods.
 - Audit entries for authentication, account, and settings changes.
-- A responsive MJD Square workspace shell, sign-in screen, dashboard setup state, account security, staff, and business settings screens.
+- Customer and supplier records, documented opening balances, product categories, units and unit conversions, retail/wholesale prices and quantity tiers.
+- Product inventory balances with reasoned, append-only opening, adjustment, damaged-stock, sale, and purchase movements.
+- Completed retail and wholesale sales with invoice snapshots, applicable price tiers, atomic stock reduction, and protection against negative stock.
+- Supplier purchases with stock increases, purchase-cost updates, supplier references, and atomic inventory movements.
+- Manual, append-only payments against one sale/purchase invoice or a customer/supplier account balance, including partial payments and outstanding balances. Payment methods come from business settings; payments have no independent verification status or provider verification.
+- Manually recorded expenses, date-range totals, customer/supplier outstanding balances, low-stock counts, CSV summary exports, and browser-printable sales invoices.
+- A responsive MJD Square workspace shell, sign-in screen, dashboard, account security, staff, business settings, customer, supplier, inventory, sales, purchases, expenses, and reports screens.
 
-Sales, inventory, customer/supplier records, receipts, reports, reminders, and offline synchronization are not implemented yet. Dashboard figures are intentionally omitted until authoritative business records exist. No payment gateway or provider credentials are part of this launch foundation.
+## Blueprint reconciliation
+
+Status below is measured against the supplied master development prompt, not just against whether a screen or database table exists. “Partial” means a useful subset works, while important required behavior remains.
+
+| Blueprint area | Status | Implemented | Not yet implemented |
+|---|---|---|---|
+| Product identity and visual design (§2) | Partial | MJD Square branding, responsive light UI, navy/teal styling, SVG favicon. | Full brand/document system, richer accessible transaction states, realistic isolated demo data. |
+| Architecture and infrastructure (§3) | Partial | React/TypeScript and FastAPI modular monolith, migrations, CI, local SQLite and PostgreSQL configuration. | Production deployment, managed secrets/HTTPS, automated backups and restore evidence, structured monitoring, background job system, server-generated PDFs, PWA. |
+| Accounts and permissions (§4) | Partial | Owner/staff accounts, server-enforced permissions, password hashing, expiring sessions, CSRF, login throttling, password change/reset flow. | SMTP delivery is not configured by default; credit/discount approvals, reversal controls, and all blueprint-specific permission distinctions are not complete. |
+| Navigation and search (§5) | Partial | Responsive permission-filtered navigation for implemented pages, including business settings. | Dedicated invoice/payment/audit-history pages, reminders, document-branding settings, and global search. Some planned areas are not navigable workflows. |
+| Dashboard (§6) | Not met | Setup/operations landing page with links and financial-integrity note. | Authoritative financial cards, date presets, charts, debt aging/trends, top products, recent transactions/payments, due dates, inventory valuation. The report page is not a substitute for this dashboard. |
+| Products and inventory (§7) | Partial | Products, SKU/barcode, categories, units/conversions, costs/prices/tiers, suppliers, stock balances/history, low-stock indicator, audited adjustments, atomic sale/purchase stock movement with nonnegative-stock checks. | Product images, returns/supplier returns, stocktaking/discrepancy reports, inventory valuation, multi-location support. PostgreSQL concurrency behavior needs dedicated validation. |
+| Sales and invoices (§8) | Partial | Completed retail/wholesale sales, price tiers, immutable line-price snapshots, invoice number, manual initial/partial payments, printable invoice, stock deduction. | Draft/approval and credit policy/limits, discounts/taxes, due dates/statuses, multiple methods or allocations per invoice, customer deposits, returns/refunds, cancellation/reversal/correction. |
+| Customer accounts (§9) | Partial | Customer records, documented opening balances, invoice/account payments, aggregate outstanding balance. | Customer ledger/profile totals, overdue amounts, unallocated deposits, per-customer payment/invoice history, returns/reminders, period statements and reconciliation UI. |
+| Supplier accounts (§10) | Partial | Supplier records, purchase invoices, stock intake, invoice/account payments, aggregate payable balance. | Due dates/aging, supplier statements/history, returns/adjustments, reconciliation UI. Account payments are not allocated to a specific purchase invoice. |
+| Payment recording (§11, supplied excerpt) | Partial | Manual payment methods, invoice/account-linked payment entries, amount, auto-recorded timestamp, reference, notes, and recording user. | Explicit verification states, user-specified transaction time, receiving/paying account and evidence fields, multi-invoice allocation, reconciliation workflows, payment history view. No gateway is needed for this version, but manual records still need explicit lifecycle/verification handling. |
+| Later blueprint areas | Not assessed from attachment | The shared prompt snapshot ends partway through §11. | The rest of the master prompt was not included in the provided attachment, so no completeness claim is made for it. |
+
+This implementation can demonstrate normal sales, purchases, basic payments, expenses, stock effects, and summary reports with local test data. It is not safe to treat as the complete blueprint or as production financial software. Financial records have no complete reversal/correction lifecycle; use test data until that and the operational controls are implemented and accepted. Offline synchronization and payment-gateway integration are not part of this MVP slice.
 
 ## Local development
 
@@ -97,13 +121,17 @@ The backend tests use isolated SQLite databases for fast unit/API coverage. Post
 
 ## Roadmap
 
-1. **Foundation (implemented):** authentication, RBAC, business settings, shared UI, CI.
-2. **Business records:** products, customers, suppliers, units, opening balances, and auditable stock movements.
-3. **Transactions:** sales, invoices, payment entries and allocations, purchases, supplier balances, expenses, returns, and corrections.
-4. **Operations and reporting:** receipts, statements, reminders, reports, exports, and complete financial audit workflows.
-5. **Offline operation:** PWA, carefully scoped IndexedDB storage, idempotent synchronization, and conflict handling.
-6. **Production readiness:** security review, performance checks, migration and backup restoration tests, deployment, and onboarding.
-7. **Planned future OPay integration:** only after account eligibility and official provider capabilities are confirmed. It is not a launch dependency; manual cash, POS, and transfer recording remain the fallback.
+The work follows the staged blueprint. The payment gateway is a future integration phase and is not required for the first release.
+
+1. **Foundation (partially implemented):** repository, database configuration, authentication, core RBAC, business settings, shared UI, CI, and tests are present. Production infrastructure, search, PWA, monitoring, automated backup, and other blueprint items remain.
+2. **Business records (partially implemented):** product/customer/supplier setup, units and price tiers, opening balances, and audited stock movements are available. Inventory valuation, returns, and stocktaking are not.
+3. **Core transaction MVP (partially implemented):** completed retail/wholesale sales and invoices, manual payments against one invoice or account balance, purchases, supplier balances, expenses, period summaries, and transaction-driven inventory changes. Approval policies, due dates, returns/refunds, reversal/correction workflows, and multi-invoice allocation remain.
+4. **Receipts, reminders, and reports (partially implemented):** browser-printable sales invoices, outstanding-balance/period reports, and CSV summary exports are available. The dashboard is not a financial dashboard; PDF documents, statements, payment history, overdue alerts, WhatsApp sharing, and audit-history workflows remain.
+5. **Offline operation (not implemented):** PWA installation, carefully scoped IndexedDB storage, idempotent synchronization, visible sync state, and conflict handling.
+6. **Production readiness (not complete):** security and performance reviews, PostgreSQL deployment validation, backup restoration tests, user acceptance, deployment, data migration, and staff onboarding.
+7. **Future payment-gateway integration (OPay planned):** confirm business-account eligibility and official provider capabilities first; then implement and test secure server-side events, reconciliation, and audit handling. The integration must not block launch, and manual cash, POS, and transfer recording remain the fallback.
+
+Do not treat an opening balance as a historical invoice, or a manual payment entry as independently verified by a bank or provider. Sales and purchases now create inventory movements; all future stock-affecting actions must preserve that ledger relationship.
 
 ## Security notes
 
@@ -112,4 +140,5 @@ The backend tests use isolated SQLite databases for fast unit/API coverage. Post
 - The frontend does not connect directly to PostgreSQL.
 - Staff permissions are enforced by the API, not only by navigation visibility.
 - Manual payment methods record staff-entered information and do not claim independent bank/provider verification.
+- Payment-provider integration is not active. Do not configure or expose provider credentials until the future integration phase is approved and official provider requirements are verified.
 - Completed financial records will require reversal or adjustment workflows; deleting transactions is not part of the design.

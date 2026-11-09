@@ -12,6 +12,7 @@ from app.models import (
     BusinessSettings,
     Permission,
     Role,
+    UnitOfMeasure,
     User,
 )
 from app.permission_catalog import ALL_PERMISSIONS, STAFF_DEFAULT_PERMISSIONS
@@ -40,6 +41,23 @@ def ensure_foundation_records(db: Session) -> tuple[Role, Role]:
         staff.permissions = [permissions[name] for name in STAFF_DEFAULT_PERMISSIONS]
     if db.get(BusinessSettings, 1) is None:
         db.add(BusinessSettings(id=1))
+    for unit_id, name, abbreviation, decimal_places in (
+        ("piece", "Piece", "pc", 0),
+        ("pack", "Pack", "pack", 0),
+        ("carton", "Carton", "ctn", 0),
+        ("bag", "Bag", "bag", 0),
+        ("kilogram", "Kilogram", "kg", 3),
+        ("litre", "Litre", "L", 3),
+    ):
+        if db.get(UnitOfMeasure, unit_id) is None:
+            db.add(
+                UnitOfMeasure(
+                    id=unit_id,
+                    name=name,
+                    abbreviation=abbreviation,
+                    decimal_places=decimal_places,
+                )
+            )
     return owner, staff
 
 

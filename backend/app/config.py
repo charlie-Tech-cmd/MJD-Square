@@ -1,7 +1,7 @@
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -20,12 +20,50 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     cors_origins: str = "http://localhost:5173"
     frontend_url: str = "http://localhost:5173"
-    smtp_host: str | None = None
-    smtp_port: int = 587
-    smtp_username: str | None = None
-    smtp_password: str | None = None
-    smtp_use_starttls: bool = True
-    mail_from: str | None = None
+    smtp_host: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SMTP_HOST",
+            "BREVO_SMTP_HOST",
+        ),
+    )
+    smtp_port: int = Field(
+        default=587,
+        validation_alias=AliasChoices(
+            "SMTP_PORT",
+            "BREVO_SMTP_PORT",
+        ),
+    )
+    smtp_username: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SMTP_USERNAME",
+            "BREVO_SMTP_USERNAME",
+            "BREVO_SMTP_USER",
+        ),
+    )
+    smtp_password: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "SMTP_PASSWORD",
+            "BREVO_SMTP_PASSWORD",
+        ),
+    )
+    smtp_use_starttls: bool = Field(
+        default=True,
+        validation_alias=AliasChoices(
+            "SMTP_USE_STARTTLS",
+            "BREVO_SMTP_USE_STARTTLS",
+        ),
+    )
+    mail_from: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "MAIL_FROM",
+            "BREVO_MAIL_FROM",
+            "BREVO_SENDER_EMAIL",
+        ),
+    )
 
     @field_validator("app_env")
     @classmethod

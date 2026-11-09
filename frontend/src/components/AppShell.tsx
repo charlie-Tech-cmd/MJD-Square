@@ -7,7 +7,6 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   CircleDollarSign,
-  FileText,
   LayoutDashboard,
   KeyRound,
   Menu,
@@ -16,7 +15,6 @@ import {
   ShoppingBag,
   Users,
   UserRoundCog,
-  WalletCards,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -29,16 +27,14 @@ import { Brand } from "./Brand";
 
 const navItems = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard, permission: "dashboard:read", active: true },
-  { label: "Sales", icon: ShoppingBag, permission: "sales:read" },
-  { label: "Invoices", icon: FileText, permission: "sales:read" },
-  { label: "Payments", icon: WalletCards, permission: "payments:read" },
-  { label: "Customers", icon: Users, permission: "customers:read" },
-  { label: "Suppliers", icon: BriefcaseBusiness, permission: "suppliers:read" },
-  { label: "Products & inventory", icon: Boxes, permission: "inventory:read" },
-  { label: "Purchases", icon: PackageOpen, permission: "purchases:read" },
-  { label: "Expenses", icon: CircleDollarSign, permission: "expenses:read" },
+  { label: "Sales & invoices", to: "/sales", icon: ShoppingBag, permission: "sales:read" },
+  { label: "Customers", to: "/customers", icon: Users, permission: "customers:read" },
+  { label: "Suppliers", to: "/suppliers", icon: BriefcaseBusiness, permission: "suppliers:read" },
+  { label: "Products & inventory", to: "/inventory", icon: Boxes, permission: "inventory:read" },
+  { label: "Purchases", to: "/purchases", icon: PackageOpen, permission: "purchases:read" },
+  { label: "Expenses", to: "/expenses", icon: CircleDollarSign, permission: "expenses:read" },
   { label: "Payment reminders", icon: BellRing, permission: "customers:read" },
-  { label: "Reports", icon: BarChart3, permission: "reports:read" },
+  { label: "Reports", to: "/reports", icon: BarChart3, permission: "reports:read" },
   { label: "Transaction history", icon: Activity, permission: "audit:read" },
 ];
 
@@ -133,8 +129,8 @@ export function AppShell({ user, onSignOut }: AppShellProps) {
         <div className="phase-note">
           <span className="phase-note-icon"><Activity size={15} /></span>
           <div>
-            <strong>Setup in progress</strong>
-            <small>Core records are next</small>
+            <strong>Core operations ready</strong>
+            <small>Sales, stock, and payables</small>
           </div>
           <ArrowUpRight size={15} className="muted-icon" />
         </div>
@@ -152,13 +148,19 @@ export function AppShell({ user, onSignOut }: AppShellProps) {
     </>
   );
 
-  const pageTitle = location.pathname === "/settings"
-    ? "Business settings"
-    : location.pathname === "/team"
-      ? "Staff and permissions"
-      : location.pathname === "/account"
-        ? "Account security"
-        : "Dashboard";
+  const pageTitleByPath: Record<string, string> = {
+    "/settings": "Business settings",
+    "/team": "Staff and permissions",
+    "/account": "Account security",
+    "/customers": "Customers",
+    "/suppliers": "Suppliers",
+    "/inventory": "Products & inventory",
+    "/sales": "Sales & invoices",
+    "/purchases": "Purchases",
+    "/expenses": "Expenses",
+    "/reports": "Reports",
+  };
+  const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
 
   return (
     <div className="app-layout">

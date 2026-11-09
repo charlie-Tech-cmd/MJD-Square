@@ -9,6 +9,13 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TeamPage } from "./pages/TeamPage";
 import { AccountPage } from "./pages/AccountPage";
+import { CustomersPage } from "./pages/CustomersPage";
+import { InventoryPage } from "./pages/InventoryPage";
+import { SuppliersPage } from "./pages/SuppliersPage";
+import { SalesPage } from "./pages/SalesPage";
+import { PurchasesPage } from "./pages/PurchasesPage";
+import { ExpensesPage } from "./pages/ExpensesPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { api } from "./lib/api";
 import { hasPermission } from "./lib/permissions";
 import { ApiError } from "./lib/api";
@@ -81,6 +88,62 @@ export default function App() {
         }
       >
         <Route element={<DashboardPage user={sessionQuery.data} />} path="/" />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "customers:read")
+              ? <CustomersPage user={sessionQuery.data} />
+              : <Navigate replace to="/" />
+          }
+          path="/customers"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "suppliers:read")
+              ? <SuppliersPage user={sessionQuery.data} />
+              : <Navigate replace to="/" />
+          }
+          path="/suppliers"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "inventory:read")
+              ? <InventoryPage user={sessionQuery.data} />
+              : <Navigate replace to="/" />
+          }
+          path="/inventory"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "sales:read")
+              ? <SalesPage user={sessionQuery.data} />
+              : <Navigate replace to="/" />
+          }
+          path="/sales"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "purchases:read")
+              ? <PurchasesPage user={sessionQuery.data} />
+              : <Navigate replace to="/" />
+          }
+          path="/purchases"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "expenses:read")
+              ? <ExpensesPage user={sessionQuery.data} />
+              : <Navigate replace to="/" />
+          }
+          path="/expenses"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "reports:read")
+              ? <ReportsPage />
+              : <Navigate replace to="/" />
+          }
+          path="/reports"
+        />
         <Route
           element={
             hasPermission(sessionQuery.data, "settings:read")

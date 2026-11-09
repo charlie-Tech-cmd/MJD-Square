@@ -1,4 +1,4 @@
-import { ArrowRight, BadgeCheck, CircleHelp, Settings2, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, CircleHelp, Settings2, ShieldCheck, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
 import { hasPermission } from "../lib/permissions";
 import type { User } from "../types";
@@ -15,6 +15,7 @@ const foundationSteps = [
 
 export function DashboardPage({ user }: DashboardPageProps) {
   const canManageSettings = hasPermission(user, "settings:manage");
+  const canManageInventory = hasPermission(user, "inventory:manage");
   const today = new Intl.DateTimeFormat("en-NG", {
     weekday: "long",
     day: "numeric",
@@ -29,11 +30,14 @@ export function DashboardPage({ user }: DashboardPageProps) {
           <h1>Welcome to MJD Square</h1>
           <p>Your workspace is ready. Check stock, record a sale, or review your business activity.</p>
         </div>
-        {canManageSettings && (
-          <Link className="button button-secondary" to="/settings">
-            <Settings2 size={16} /> Business settings
-          </Link>
-        )}
+        <div className="dashboard-actions">
+          {hasPermission(user, "sales:create") && (
+            <Link className="button button-primary" to="/sales"><ShoppingBag size={16} /> Record a sale</Link>
+          )}
+          {canManageSettings && (
+            <Link className="button button-secondary" to="/settings"><Settings2 size={16} /> Business settings</Link>
+          )}
+        </div>
       </div>
 
       <section className="welcome-panel">
@@ -41,10 +45,15 @@ export function DashboardPage({ user }: DashboardPageProps) {
           <span className="eyebrow eyebrow-light">A CLEARER VIEW OF YOUR BUSINESS</span>
           <h2>Everything in its right place.</h2>
           <p>
-            This workspace is being prepared for MJD Square. Add your business details first;
-            sales, stock, customer balances, and reports will appear here as those modules are set up.
+            Record completed sales, track payments against invoices, and keep stock movement tied to purchases.
+            Your reports use the records your team enters.
           </p>
-          {canManageSettings && (
+          {hasPermission(user, "sales:read") && (
+            <Link className="welcome-link" to="/sales">
+              Open sales and invoices <ArrowRight size={16} />
+            </Link>
+          )}
+          {canManageSettings && !hasPermission(user, "sales:read") && (
             <Link className="welcome-link" to="/settings">
               Review business settings <ArrowRight size={16} />
             </Link>
@@ -85,6 +94,10 @@ export function DashboardPage({ user }: DashboardPageProps) {
             <Link className="setup-card setup-card-link" key={step.title} to="/settings">
               {content}
             </Link>
+          ) : step.title === "Products and stock" && canManageInventory ? (
+            <Link className="setup-card setup-card-link" key={step.title} to="/inventory">
+              {content}
+            </Link>
           ) : (
             <article className={`setup-card${step.complete ? " setup-card-done" : ""}`} key={step.title}>
               {content}
@@ -96,8 +109,8 @@ export function DashboardPage({ user }: DashboardPageProps) {
       <div className="dashboard-note">
         <CircleHelp size={17} />
         <p>
-          Financial totals are intentionally not shown until records are available. This keeps
-          actual sales, collected payments, and outstanding balances distinct and trustworthy.
+          Reports distinguish invoice totals, manually recorded payments, and balances due.
+          Payment entries are not independently verified by a bank or payment provider.
         </p>
       </div>
     </div>

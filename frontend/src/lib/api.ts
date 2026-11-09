@@ -1,4 +1,28 @@
-import type { ApiErrorPayload, BusinessSettings, User } from "../types";
+import type {
+  ApiErrorPayload,
+  BusinessSettings,
+  Customer,
+  CustomerCreateInput,
+  CustomerUpdateInput,
+  Expense,
+  OutstandingReport,
+  Product,
+  ProductCategory,
+  ProductCreateInput,
+  ProductUpdateInput,
+  Purchase,
+  ReportSummary,
+  Sale,
+  StockMovement,
+  StockMovementInput,
+  Supplier,
+  SupplierCreateInput,
+  SupplierUpdateInput,
+  UnitConversion,
+  UnitOfMeasure,
+  TransactionPayment,
+  User,
+} from "../types";
 
 const API_ROOT = "/api/v1";
 
@@ -114,5 +138,213 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(settings),
     });
+  },
+
+  customers(): Promise<Customer[]> {
+    return request<Customer[]>("/customers");
+  },
+
+  createCustomer(customer: CustomerCreateInput): Promise<Customer> {
+    return request<Customer>("/customers", {
+      method: "POST",
+      body: JSON.stringify(customer),
+    });
+  },
+
+  updateCustomer(id: string, changes: CustomerUpdateInput): Promise<Customer> {
+    return request<Customer>(`/customers/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
+  },
+
+  suppliers(): Promise<Supplier[]> {
+    return request<Supplier[]>("/suppliers");
+  },
+
+  createSupplier(supplier: SupplierCreateInput): Promise<Supplier> {
+    return request<Supplier>("/suppliers", {
+      method: "POST",
+      body: JSON.stringify(supplier),
+    });
+  },
+
+  updateSupplier(id: string, changes: SupplierUpdateInput): Promise<Supplier> {
+    return request<Supplier>(`/suppliers/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
+  },
+
+  products(): Promise<Product[]> {
+    return request<Product[]>("/products");
+  },
+
+  createProduct(product: ProductCreateInput): Promise<Product> {
+    return request<Product>("/products", {
+      method: "POST",
+      body: JSON.stringify(product),
+    });
+  },
+
+  updateProduct(id: string, changes: ProductUpdateInput): Promise<Product> {
+    return request<Product>(`/products/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
+  },
+
+  productCategories(): Promise<ProductCategory[]> {
+    return request<ProductCategory[]>("/product-categories");
+  },
+
+  createProductCategory(payload: { name: string; description: string }): Promise<ProductCategory> {
+    return request<ProductCategory>("/product-categories", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  units(): Promise<UnitOfMeasure[]> {
+    return request<UnitOfMeasure[]>("/units");
+  },
+
+  createUnit(unit: UnitOfMeasure): Promise<UnitOfMeasure> {
+    return request<UnitOfMeasure>("/units", {
+      method: "POST",
+      body: JSON.stringify(unit),
+    });
+  },
+
+  unitConversions(): Promise<UnitConversion[]> {
+    return request<UnitConversion[]>("/unit-conversions");
+  },
+
+  createUnitConversion(conversion: Omit<UnitConversion, "id">): Promise<UnitConversion> {
+    return request<UnitConversion>("/unit-conversions", {
+      method: "POST",
+      body: JSON.stringify(conversion),
+    });
+  },
+
+  createStockMovement(productId: string, movement: StockMovementInput): Promise<StockMovement> {
+    return request<StockMovement>(
+      `/products/${encodeURIComponent(productId)}/stock-movements`,
+      { method: "POST", body: JSON.stringify(movement) },
+    );
+  },
+
+  stockMovements(productId: string): Promise<StockMovement[]> {
+    return request<StockMovement[]>(
+      `/products/${encodeURIComponent(productId)}/stock-movements`,
+    );
+  },
+
+  sales(): Promise<Sale[]> {
+    return request<Sale[]>("/sales");
+  },
+
+  createSale(sale: {
+    customer_id: string | null;
+    sale_type: "retail" | "wholesale";
+    sale_date: string;
+    lines: { product_id: string; quantity: string }[];
+    payment_amount: string;
+    payment_method: string | null;
+    payment_reference: string | null;
+    notes: string;
+  }): Promise<Sale> {
+    return request<Sale>("/sales", { method: "POST", body: JSON.stringify(sale) });
+  },
+
+  recordSalePayment(saleId: string, payment: {
+    amount: string;
+    method: string;
+    reference: string | null;
+    notes: string;
+  }): Promise<void> {
+    return request<void>(`/sales/${encodeURIComponent(saleId)}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payment),
+    });
+  },
+
+  purchases(): Promise<Purchase[]> {
+    return request<Purchase[]>("/purchases");
+  },
+
+  createPurchase(purchase: {
+    supplier_id: string | null;
+    supplier_reference: string | null;
+    purchase_date: string;
+    lines: { product_id: string; quantity: string; unit_cost: string }[];
+    payment_amount: string;
+    payment_method: string | null;
+    payment_reference: string | null;
+    notes: string;
+  }): Promise<Purchase> {
+    return request<Purchase>("/purchases", { method: "POST", body: JSON.stringify(purchase) });
+  },
+
+  recordPurchasePayment(purchaseId: string, payment: {
+    amount: string;
+    method: string;
+    reference: string | null;
+    notes: string;
+  }): Promise<void> {
+    return request<void>(`/purchases/${encodeURIComponent(purchaseId)}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payment),
+    });
+  },
+
+  recordCustomerAccountPayment(customerId: string, payment: {
+    amount: string;
+    method: string;
+    reference: string | null;
+    notes: string;
+  }): Promise<TransactionPayment> {
+    return request<TransactionPayment>(`/customers/${encodeURIComponent(customerId)}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payment),
+    });
+  },
+
+  recordSupplierAccountPayment(supplierId: string, payment: {
+    amount: string;
+    method: string;
+    reference: string | null;
+    notes: string;
+  }): Promise<TransactionPayment> {
+    return request<TransactionPayment>(`/suppliers/${encodeURIComponent(supplierId)}/payments`, {
+      method: "POST",
+      body: JSON.stringify(payment),
+    });
+  },
+
+  expenses(): Promise<Expense[]> {
+    return request<Expense[]>("/expenses");
+  },
+
+  createExpense(expense: {
+    category: string;
+    description: string;
+    amount: string;
+    expense_date: string;
+    method: string;
+    reference: string | null;
+    notes: string;
+  }): Promise<Expense> {
+    return request<Expense>("/expenses", { method: "POST", body: JSON.stringify(expense) });
+  },
+
+  reportSummary(from: string, to: string): Promise<ReportSummary> {
+    return request<ReportSummary>(
+      `/reports/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    );
+  },
+
+  outstandingBalances(): Promise<OutstandingReport> {
+    return request<OutstandingReport>("/reports/outstanding");
   },
 };
