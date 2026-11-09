@@ -129,6 +129,34 @@ class AuditLog(Base):
     actor: Mapped[User | None] = relationship()
 
 
+class ReminderActivity(Base):
+    __tablename__ = "reminder_activities"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('prepared', 'sent_manually', 'follow_up_required', "
+            "'promised_payment', 'disputed', 'resolved')",
+            name="ck_reminder_activity_status_valid",
+        ),
+        CheckConstraint(
+            "channel IS NULL OR channel IN ('whatsapp', 'phone', 'in_person', 'other')",
+            name="ck_reminder_activity_channel_valid",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    sale_id: Mapped[str] = mapped_column(
+        ForeignKey("sales.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    channel: Mapped[str | None] = mapped_column(String(20))
+    notes: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    created_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    actor: Mapped[User | None] = relationship()
+
+
 class SystemEvent(Base):
     __tablename__ = "system_events"
 
@@ -396,6 +424,7 @@ class Sale(Base):
     )
     sale_type: Mapped[str] = mapped_column(String(20), nullable=False)
     sale_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     notes: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
     created_by: Mapped[str | None] = mapped_column(

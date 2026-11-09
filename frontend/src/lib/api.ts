@@ -10,7 +10,10 @@ import type {
   ProductCategory,
   ProductCreateInput,
   ProductUpdateInput,
+  PaymentReminder,
   Purchase,
+  ReminderActivity,
+  ReminderStatus,
   ReportSummary,
   Sale,
   StockMovement,
@@ -21,6 +24,7 @@ import type {
   UnitConversion,
   UnitOfMeasure,
   TransactionPayment,
+  TransactionHistoryEntry,
   User,
 } from "../types";
 
@@ -248,6 +252,7 @@ export const api = {
     customer_id: string | null;
     sale_type: "retail" | "wholesale";
     sale_date: string;
+    due_date: string;
     lines: { product_id: string; quantity: string }[];
     payment_amount: string;
     payment_method: string | null;
@@ -262,11 +267,32 @@ export const api = {
     method: string;
     reference: string | null;
     notes: string;
-  }): Promise<void> {
-    return request<void>(`/sales/${encodeURIComponent(saleId)}/payments`, {
+  }): Promise<TransactionPayment> {
+    return request<TransactionPayment>(`/sales/${encodeURIComponent(saleId)}/payments`, {
       method: "POST",
       body: JSON.stringify(payment),
     });
+  },
+
+  paymentReminders(): Promise<PaymentReminder[]> {
+    return request<PaymentReminder[]>("/payment-reminders");
+  },
+
+  recordReminderActivity(saleId: string, activity: {
+    status: ReminderStatus;
+    channel: ReminderActivity["channel"];
+    notes: string;
+  }): Promise<ReminderActivity> {
+    return request<ReminderActivity>(
+      `/sales/${encodeURIComponent(saleId)}/reminder-activities`,
+      { method: "POST", body: JSON.stringify(activity) },
+    );
+  },
+
+  transactionHistory(q = "", offset = 0): Promise<TransactionHistoryEntry[]> {
+    const params = new URLSearchParams({ offset: String(offset) });
+    if (q.trim()) params.set("q", q.trim());
+    return request<TransactionHistoryEntry[]>(`/transaction-history?${params.toString()}`);
   },
 
   purchases(): Promise<Purchase[]> {

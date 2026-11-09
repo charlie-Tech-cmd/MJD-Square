@@ -285,11 +285,88 @@ button { cursor: pointer; }
 .print-invoice-totals p { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #edf0f3; color: #54647a; font-size: 11px; }
 .print-invoice-totals strong { color: #263d53; }
 .print-invoice-note { padding-top: 20px; border-top: 1px solid #dfe5eb; color: #718094 !important; font-size: 10px !important; }
+.transaction-payment-row { display: flex; align-items: center; gap: 8px; margin: 7px 0 0 38px; }
+.transaction-payment-row .transaction-payment { margin: 0; }
+.transaction-payment-row .button { min-height: 27px; padding: 0 7px; font-size: 9px; }
+.receipt-modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 20px; background: rgba(15, 29, 45, .48); }
+.receipt-dialog { width: min(100%, 610px); max-height: calc(100vh - 40px); overflow-y: auto; padding: 20px; border: 1px solid #e5eaf0; border-radius: 10px; background: #f7f9fb; box-shadow: 0 18px 55px rgba(15, 29, 45, .22); }
+.receipt-dialog-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.receipt-dialog-toolbar h2 { margin: 5px 0 0; color: #293a50; font-size: 16px; }
+.payment-receipt-print { padding: 26px; border: 1px solid #e3e8ed; background: #fff; color: #35465c; }
+.payment-receipt-header { padding-bottom: 18px; border-bottom: 2px solid #263d53; text-align: center; }
+.payment-receipt-header h1 { margin: 7px 0; color: #263d53; font-size: 22px; }
+.payment-receipt-header p { margin: 0 0 8px; color: #6a7887; font-size: 11px; }
+.payment-receipt-header > strong { color: #263d53; font-size: 12px; }
+.payment-receipt-details { margin: 16px 0; }
+.payment-receipt-details > div { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid #edf0f3; font-size: 10px; }
+.payment-receipt-details dt { color: #7d8998; }
+.payment-receipt-details dd { margin: 0; color: #35465c; font-weight: 650; text-align: right; overflow-wrap: anywhere; }
+.payment-receipt-verification { margin: 17px 0 0; padding: 10px; border: 1px solid #f1dfbf; border-radius: 5px; background: #fffaf0; color: #795c2d; font-size: 9px; line-height: 1.5; text-align: center; }
+.payment-receipt-thanks { margin: 17px 0 0; color: #718094; font-size: 10px; text-align: center; }
+.receipt-dialog-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.receipt-dialog-actions a { text-decoration: none; }
+.receipt-share-hint { display: inline-flex; align-items: center; gap: 5px; color: #8290a0; font-size: 9px; }
+.receipt-dialog-note { margin: 12px 0 0; color: #8290a0; font-size: 9px; line-height: 1.5; }
+.reminder-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 15px 0; }
+.reminder-list { display: flex; flex-direction: column; gap: 12px; }
+.reminder-card { max-width: none; padding: 18px 20px; }
+.reminder-card-heading, .reminder-contact-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.reminder-card-heading .record-details { gap: 5px; }
+.reminder-due-badge { flex: 0 0 auto; padding: 6px 9px; border-radius: 5px; background: #edf7f3; color: #16806e; font-size: 9px; font-weight: 680; }
+.reminder-due-badge.is-overdue { background: #fff1ec; color: #a64e2e; }
+.reminder-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 15px 0; padding: 12px 0; border-top: 1px solid #edf0f3; border-bottom: 1px solid #edf0f3; }
+.reminder-summary div { display: flex; flex-direction: column; gap: 5px; }
+.reminder-summary span { color: #8290a0; font-size: 9px; }
+.reminder-summary strong { color: #35465c; font-size: 12px; }
+.reminder-summary div:last-child strong { color: #a64e2e; }
+.reminder-contact-row { justify-content: flex-start; color: #7e8b9b; font-size: 9px; }
+.reminder-contact-row .button { margin-left: auto; text-decoration: none; }
+.reminder-activity-list { margin-top: 12px; padding: 10px 0; border-top: 1px solid #edf0f3; }
+.reminder-activity-list summary { color: #16806e; font-size: 9px; cursor: pointer; }
+.reminder-activity-item { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 0; color: #607087; font-size: 9px; }
+.reminder-activity-item strong { color: #35465c; }
+.reminder-activity-item small { color: #8793a2; font-size: 8px; line-height: 1.5; }
+.reminder-activity-form { display: grid; grid-template-columns: minmax(150px, .7fr) minmax(180px, 1fr) auto; align-items: end; gap: 10px; margin-top: 12px; }
+.reminder-activity-form .field { gap: 5px; }
+.reminder-activity-form .field span { font-size: 9px; }
+.reminder-activity-form .field input, .reminder-activity-form .field select { height: 36px; font-size: 10px; }
+.reminder-notes-field { grid-column: 1 / 3; }
+.reminder-activity-form .button { min-height: 36px; }
+.reminder-card > .form-alert, .reminder-card > .success-alert { margin-top: 10px; }
+.reminder-empty { max-width: none; margin-top: 15px; padding-bottom: 18px; }
+.reminder-empty h2 { margin: 2px 0 6px; color: #35465c; font-size: 13px; }
+.reminder-empty p { margin: 0; color: #8290a0; font-size: 10px; }
+.history-search { display: flex; align-items: end; gap: 10px; margin-bottom: 15px; }
+.history-search .field { flex: 1; }
+.history-search .field input { height: 39px; }
+.history-search .button { min-height: 39px; }
+.history-card { max-width: none; padding-bottom: 12px; }
+.history-list { position: relative; }
+.history-entry { position: relative; display: flex; gap: 12px; padding: 15px 0; border-bottom: 1px solid #f0f2f5; }
+.history-entry:last-child { border-bottom: 0; }
+.history-entry-marker { display: grid; width: 29px; height: 29px; flex: 0 0 auto; place-items: center; border: 1px solid #e4eceb; border-radius: 50%; background: #f5faf8; color: #16806e; }
+.history-entry-content { min-width: 0; flex: 1; }
+.history-entry-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.history-entry-heading strong { color: #35465c; font-size: 10px; font-weight: 680; text-transform: capitalize; }
+.history-entry-heading time { flex: 0 0 auto; color: #8793a2; font-size: 8px; }
+.history-entry-content > p { margin: 5px 0 0; color: #8290a0; font-size: 9px; overflow-wrap: anywhere; }
+.history-details { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 0; }
+.history-details div { display: flex; gap: 5px; max-width: 100%; padding: 5px 7px; border: 1px solid #edf0f3; border-radius: 4px; background: #fbfcfd; font-size: 8px; }
+.history-details dt { color: #8793a2; text-transform: capitalize; }
+.history-details dd { margin: 0; color: #52647a; overflow-wrap: anywhere; }
+.history-limit-note { margin: 8px 0 0; color: #8995a4; font-size: 9px; }
 @media print {
   @page { margin: 18mm; }
   body * { visibility: hidden !important; }
   .print-invoice, .print-invoice * { visibility: visible !important; }
   .print-invoice { position: fixed; inset: 0; display: block; padding: 0; background: #fff; }
+  body.printing-receipt .print-invoice, body.printing-receipt .print-invoice * { display: none !important; visibility: hidden !important; }
+  body.printing-receipt .receipt-modal-backdrop { position: static; display: block; overflow: visible; padding: 0; background: #fff; }
+  body.printing-receipt .receipt-dialog { width: 100%; max-height: none; overflow: visible; padding: 0; border: 0; box-shadow: none; }
+  body.printing-receipt .receipt-dialog-toolbar, body.printing-receipt .receipt-dialog-actions,
+  body.printing-receipt .receipt-dialog-note, body.printing-receipt .receipt-dialog > .form-alert { display: none !important; }
+  body.printing-receipt .payment-receipt-print { position: static; display: block; padding: 0; border: 0; }
+  body.printing-receipt .payment-receipt-print, body.printing-receipt .payment-receipt-print * { visibility: visible !important; }
 }
 
 @media (max-width: 1050px) {
@@ -319,6 +396,8 @@ button { cursor: pointer; }
   .graphic-ring-one { width: 120px; height: 120px; }
   .graphic-ring-two { width: 86px; height: 86px; }
   .setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reminder-activity-form { grid-template-columns: 1fr 1fr; }
+  .reminder-notes-field { grid-column: 1 / -1; }
 }
 @media (max-width: 520px) {
   .auth-form-panel { align-items: flex-start; padding-top: 48px; }
@@ -355,7 +434,21 @@ button { cursor: pointer; }
   .transaction-row-main { align-items: flex-start; flex-wrap: wrap; }
   .transaction-amounts { margin-left: 38px; text-align: left; }
   .payment-inline-form { grid-template-columns: 1fr; margin-left: 0; }
+  .transaction-payment-row { align-items: flex-start; flex-wrap: wrap; margin-left: 0; }
+  .receipt-modal-backdrop { align-items: start; padding: 10px; }
+  .receipt-dialog { max-height: calc(100vh - 20px); padding: 15px; }
+  .payment-receipt-print { padding: 18px; }
   .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reminder-stat-grid { grid-template-columns: 1fr; }
+  .reminder-summary { gap: 7px; }
+  .reminder-summary strong { font-size: 10px; }
+  .reminder-card-heading, .reminder-contact-row { align-items: flex-start; flex-direction: column; }
+  .reminder-contact-row .button { margin-left: 0; }
+  .reminder-activity-form { grid-template-columns: 1fr; }
+  .reminder-notes-field { grid-column: auto; }
+  .history-search { align-items: stretch; flex-direction: column; }
+  .history-search .button { align-self: flex-start; }
+  .history-entry-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
   .outstanding-grid { grid-template-columns: 1fr; gap: 16px; }
   .tier-row { grid-template-columns: 1fr 1fr; }
   .category-add-row { align-items: stretch; flex-direction: column; }

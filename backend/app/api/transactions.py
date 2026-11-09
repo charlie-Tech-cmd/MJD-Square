@@ -74,6 +74,7 @@ def sale_response(sale: Sale) -> SaleResponse:
         customer_name=sale.customer.name if sale.customer else None,
         sale_type=sale.sale_type,
         sale_date=sale.sale_date,
+        due_date=sale.due_date,
         lines=[
             SaleLineResponse(
                 product_id=line.product_id,
@@ -349,6 +350,7 @@ def create_sale(
         customer_id=payload.customer_id,
         sale_type=payload.sale_type,
         sale_date=payload.sale_date,
+        due_date=payload.due_date or payload.sale_date,
         total_amount=total,
         notes=payload.notes,
         created_by=actor.id,

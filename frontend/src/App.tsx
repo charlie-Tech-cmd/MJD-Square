@@ -16,6 +16,8 @@ import { SalesPage } from "./pages/SalesPage";
 import { PurchasesPage } from "./pages/PurchasesPage";
 import { ExpensesPage } from "./pages/ExpensesPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { PaymentRemindersPage } from "./pages/PaymentRemindersPage";
+import { TransactionHistoryPage } from "./pages/TransactionHistoryPage";
 import { api } from "./lib/api";
 import { hasPermission } from "./lib/permissions";
 import { ApiError } from "./lib/api";
@@ -143,6 +145,22 @@ export default function App() {
               : <Navigate replace to="/" />
           }
           path="/reports"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "customers:read")
+              ? <PaymentRemindersPage />
+              : <Navigate replace to="/" />
+          }
+          path="/payment-reminders"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "audit:read")
+              ? <TransactionHistoryPage />
+              : <Navigate replace to="/" />
+          }
+          path="/transaction-history"
         />
         <Route
           element={

@@ -23,6 +23,7 @@ class SaleCreate(BaseModel):
     customer_id: str | None = Field(default=None, max_length=36)
     sale_type: Literal["retail", "wholesale"] = "retail"
     sale_date: date
+    due_date: date | None = None
     lines: list[SaleLineCreate] = Field(min_length=1, max_length=100)
     payment_amount: NonnegativeMoney = Decimal("0.00")
     payment_method: str | None = Field(default=None, max_length=40)
@@ -31,6 +32,8 @@ class SaleCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_sale(self) -> "SaleCreate":
+        if self.due_date is not None and self.due_date < self.sale_date:
+            raise ValueError("The invoice due date cannot be before the sale date.")
         if len({line.product_id for line in self.lines}) != len(self.lines):
             raise ValueError("A product can only appear once on a sale.")
         if self.payment_amount > 0 and not (self.payment_method or "").strip():
@@ -137,6 +140,7 @@ class SaleResponse(BaseModel):
     customer_name: str | None
     sale_type: str
     sale_date: date
+    due_date: date
     lines: list[SaleLineResponse]
     total_amount: Money
     amount_paid: Money

@@ -7,7 +7,8 @@ import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { formatNaira, formatQuantity } from "../lib/format";
 import { hasPermission } from "../lib/permissions";
-import type { Sale, User } from "../types";
+import { PaymentReceiptDialog, type PaymentReceiptDetails } from "../components/PaymentReceiptDialog";
+import type { Sale, TransactionPayment, User } from "../types";
 
 const todayInBusinessTimezone = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(new Date());
@@ -16,6 +17,7 @@ const saleSchema = z.object({
   customer_id: z.string(),
   sale_type: z.enum(["retail", "wholesale"]),
   sale_date: z.string().min(1, "Choose the sale date."),
+  due_date: z.string().min(1, "Choose the invoice due date."),
   lines: z.array(z.object({
     product_id: z.string().min(1, "Choose a product."),
     quantity: z.string().regex(/^\d{1,11}(?:\.\d{1,3})?$/, "Enter a positive quantity."),
@@ -28,12 +30,42 @@ const saleSchema = z.object({
   if (value.lines.some((line) => !/[1-9]/.test(line.quantity))) {
     context.addIssue({ code: "custom", path: ["lines"], message: "Every item needs a quantity greater than zero." });
   }
+  if (value.due_date < value.sale_date) {
+    context.addIssue({ code: "custom", path: ["due_date"], message: "Due date cannot be before the sale date." });
+  }
   if (/[1-9]/.test(value.payment_amount) && !value.payment_method) {
     context.addIssue({ code: "custom", path: ["payment_method"], message: "Choose a payment method for the amount received." });
   }
 });
 
 type SaleValues = z.infer<typeof saleSchema>;
+
+function moneyToCents(value: string): bigint {
+  const [whole = "0", fraction = ""] = value.split(".");
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0").slice(0, 2));
+}
+
+function centsToMoney(value: bigint): string {
+  const whole = value / 100n;
+  const fraction = (value % 100n).toString().padStart(2, "0");
+  return `${whole}.${fraction}`;
+}
+
+function balancesAfterPayments(sale: Sale): Map<string, string> {
+  let balance = moneyToCents(sale.total_amount);
+  const balances = new Map<string, string>();
+  const payments = [...sale.payments].sort(
+    (first, second) => first.received_at.localeCompare(second.received_at)
+      || first.id.localeCompare(second.id),
+  );
+  for (const payment of payments) {
+    balance = balance > moneyToCents(payment.amount)
+      ? balance - moneyToCents(payment.amount)
+      : 0n;
+    balances.set(payment.id, centsToMoney(balance));
+  }
+  return balances;
+}
 
 interface SalesPageProps {
   user: User;
@@ -44,6 +76,7 @@ export function SalesPage({ user }: SalesPageProps) {
   const [actionError, setActionError] = useState("");
   const [paymentFor, setPaymentFor] = useState<Sale | null>(null);
   const [printingSale, setPrintingSale] = useState<Sale | null>(null);
+  const [paymentReceipt, setPaymentReceipt] = useState<PaymentReceiptDetails | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
@@ -58,12 +91,32 @@ export function SalesPage({ user }: SalesPageProps) {
   const methods = settingsQuery.data?.payment_methods ?? [];
   const canCreate = hasPermission(user, "sales:create");
   const canTakePayment = hasPermission(user, "payments:create");
+  const buildReceipt = (
+    sale: Sale,
+    payment: TransactionPayment,
+    balanceDue: string,
+  ): PaymentReceiptDetails => {
+    const customer = customersQuery.data?.find((item) => item.id === sale.customer_id);
+    return {
+      receiptNumber: `RCP-${payment.id.replaceAll("-", "").toUpperCase()}`,
+      invoiceNumber: sale.invoice_number,
+      customerName: sale.customer_name ?? "Walk-in customer",
+      customerPhone: customer?.whatsapp ?? customer?.phone ?? null,
+      amount: payment.amount,
+      method: payment.method,
+      reference: payment.reference,
+      receivedAt: payment.received_at,
+      invoiceTotal: sale.total_amount,
+      balanceDue,
+    };
+  };
   const form = useForm<SaleValues>({
     resolver: zodResolver(saleSchema),
     defaultValues: {
       customer_id: "",
       sale_type: "retail",
       sale_date: todayInBusinessTimezone(),
+      due_date: todayInBusinessTimezone(),
       lines: [{ product_id: "", quantity: "1" }],
       payment_amount: "0.00",
       payment_method: "",
@@ -76,10 +129,15 @@ export function SalesPage({ user }: SalesPageProps) {
     mutationFn: api.createSale,
     onSuccess: async (sale) => {
       setActionError("");
+      const initialPayment = sale.payments[0];
+      if (initialPayment) {
+        setPaymentReceipt(buildReceipt(sale, initialPayment, sale.balance_due));
+      }
       form.reset({
         customer_id: "",
         sale_type: "retail",
         sale_date: todayInBusinessTimezone(),
+        due_date: todayInBusinessTimezone(),
         lines: [{ product_id: "", quantity: "1" }],
         payment_amount: "0.00",
         payment_method: "",
@@ -96,11 +154,17 @@ export function SalesPage({ user }: SalesPageProps) {
     onError: (error) => setActionError(error instanceof ApiError ? error.message : "Unable to record sale."),
   });
   const paymentMutation = useMutation({
-    mutationFn: ({ saleId, amount, method, reference }: {
-      saleId: string; amount: string; method: string; reference: string | null;
-    }) => api.recordSalePayment(saleId, { amount, method, reference, notes: "" }),
-    onSuccess: async () => {
+    mutationFn: ({ sale, amount, method, reference }: {
+      sale: Sale; amount: string; method: string; reference: string | null;
+    }) => api.recordSalePayment(sale.id, { amount, method, reference, notes: "" }),
+    onSuccess: async (payment, variables) => {
       setActionError("Payment recorded.");
+      const remaining = moneyToCents(variables.sale.balance_due) - moneyToCents(payment.amount);
+      setPaymentReceipt(buildReceipt(
+        variables.sale,
+        payment,
+        centsToMoney(remaining > 0n ? remaining : 0n),
+      ));
       setPaymentFor(null);
       setPaymentAmount("");
       setPaymentReference("");
@@ -118,6 +182,7 @@ export function SalesPage({ user }: SalesPageProps) {
       customer_id: values.customer_id || null,
       sale_type: values.sale_type,
       sale_date: values.sale_date,
+      due_date: values.due_date,
       lines: values.lines.map((line) => ({ product_id: line.product_id, quantity: line.quantity })),
       payment_amount: values.payment_amount || "0.00",
       payment_method: values.payment_amount && /[1-9]/.test(values.payment_amount) ? values.payment_method : null,
@@ -164,11 +229,21 @@ export function SalesPage({ user }: SalesPageProps) {
           </div>
           <div className="settings-fields">
             <div className="settings-field-row">
-              <label className="field"><span>Sale date</span><input type="date" {...form.register("sale_date")} /></label>
+              <label className="field"><span>Sale date</span><input type="date" {...form.register("sale_date", {
+                onChange: (event) => {
+                  if (form.getValues("due_date") === form.getValues("sale_date")) {
+                    form.setValue("due_date", event.target.value, { shouldValidate: true });
+                  }
+                },
+              })} /></label>
               <label className="field"><span>Sale type</span>
                 <select {...form.register("sale_type")}><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select>
               </label>
             </div>
+            <label className="field"><span>Invoice due date</span>
+              <input type="date" {...form.register("due_date")} />
+              {form.formState.errors.due_date && <small className="field-error">{form.formState.errors.due_date.message}</small>}
+            </label>
             <label className="field"><span>Customer (optional)</span>
               <select {...form.register("customer_id")}>
                 <option value="">Walk-in customer</option>
@@ -233,7 +308,7 @@ export function SalesPage({ user }: SalesPageProps) {
                 <div className="transaction-row-main">
                   <div className="record-details">
                     <strong>{sale.invoice_number} · {sale.customer_name ?? "Walk-in customer"}</strong>
-                    <small>{sale.sale_date} · {sale.sale_type} · {sale.lines.map((line) =>
+                    <small>{sale.sale_date} · due {sale.due_date} · {sale.sale_type} · {sale.lines.map((line) =>
                       `${line.product_name} × ${formatQuantity(line.quantity, 3)}`).join(", ")}</small>
                   </div>
                   <div className="transaction-amounts">
@@ -254,15 +329,29 @@ export function SalesPage({ user }: SalesPageProps) {
                   }} type="button">Print invoice</button>
                 </div>
                 {sale.payments.map((payment) => (
-                  <small className="transaction-payment" key={payment.id}>
-                    {formatNaira(payment.amount)} received · {payment.method}{payment.reference ? ` · ${payment.reference}` : ""}
-                  </small>
+                  <div className="transaction-payment-row" key={payment.id}>
+                    <small className="transaction-payment">
+                      {formatNaira(payment.amount)} received · {payment.method}
+                      {payment.reference ? ` · ${payment.reference}` : ""}
+                    </small>
+                    <button
+                      className="button button-secondary record-action"
+                      onClick={() => setPaymentReceipt(buildReceipt(
+                        sale,
+                        payment,
+                        balancesAfterPayments(sale).get(payment.id) ?? sale.balance_due,
+                      ))}
+                      type="button"
+                    >
+                      Payment receipt
+                    </button>
+                  </div>
                 ))}
                 {paymentFor?.id === sale.id && (
                   <form className="payment-inline-form" onSubmit={(event) => {
                     event.preventDefault();
                     paymentMutation.mutate({
-                      saleId: sale.id,
+                      sale,
                       amount: paymentAmount,
                       method: paymentMethod,
                       reference: paymentReference.trim() || null,
@@ -289,7 +378,8 @@ export function SalesPage({ user }: SalesPageProps) {
             </div>
             <div className="print-invoice-number">
               <strong>{printingSale.invoice_number}</strong>
-              <span>{printingSale.sale_date}</span>
+              <span>Issued {printingSale.sale_date}</span>
+              <span>Due {printingSale.due_date}</span>
             </div>
           </header>
           <p><strong>Customer:</strong> {printingSale.customer_name ?? "Walk-in customer"}</p>
@@ -311,6 +401,13 @@ export function SalesPage({ user }: SalesPageProps) {
           </div>
           <p className="print-invoice-note">Thank you for your business. Payments shown are manually recorded and are not independently bank-verified.</p>
         </article>
+      )}
+      {paymentReceipt && (
+        <PaymentReceiptDialog
+          businessName={settingsQuery.data.business_name}
+          onClose={() => setPaymentReceipt(null)}
+          receipt={paymentReceipt}
+        />
       )}
     </div>
   );

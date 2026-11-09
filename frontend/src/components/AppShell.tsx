@@ -33,9 +33,9 @@ const navItems = [
   { label: "Products & inventory", to: "/inventory", icon: Boxes, permission: "inventory:read" },
   { label: "Purchases", to: "/purchases", icon: PackageOpen, permission: "purchases:read" },
   { label: "Expenses", to: "/expenses", icon: CircleDollarSign, permission: "expenses:read" },
-  { label: "Payment reminders", icon: BellRing, permission: "customers:read" },
+  { label: "Payment reminders", to: "/payment-reminders", icon: BellRing, permission: "customers:read" },
   { label: "Reports", to: "/reports", icon: BarChart3, permission: "reports:read" },
-  { label: "Transaction history", icon: Activity, permission: "audit:read" },
+  { label: "Transaction history", to: "/transaction-history", icon: Activity, permission: "audit:read" },
 ];
 
 interface AppShellProps {
@@ -159,6 +159,8 @@ export function AppShell({ user, onSignOut }: AppShellProps) {
     "/purchases": "Purchases",
     "/expenses": "Expenses",
     "/reports": "Reports",
+    "/payment-reminders": "Payment reminders",
+    "/transaction-history": "Transaction history",
   };
   const pageTitle = pageTitleByPath[location.pathname] ?? "Dashboard";
 

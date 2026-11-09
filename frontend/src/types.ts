@@ -209,6 +209,51 @@ export interface TransactionPayment {
   received_at: string;
 }
 
+export type ReminderStatus =
+  | "prepared"
+  | "sent_manually"
+  | "follow_up_required"
+  | "promised_payment"
+  | "disputed"
+  | "resolved";
+
+export interface ReminderActivity {
+  id: string;
+  status: ReminderStatus;
+  channel: "whatsapp" | "phone" | "in_person" | "other" | null;
+  notes: string;
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface PaymentReminder {
+  sale_id: string;
+  invoice_number: string;
+  customer_id: string;
+  customer_name: string;
+  customer_phone: string | null;
+  customer_whatsapp: string | null;
+  sale_date: string;
+  due_date: string;
+  total_amount: string;
+  amount_paid: string;
+  balance_due: string;
+  days_overdue: number;
+  latest_status: ReminderStatus | null;
+  last_contacted_at: string | null;
+  activities: ReminderActivity[];
+}
+
+export interface TransactionHistoryEntry {
+  id: number;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: Record<string, unknown>;
+  actor_name: string | null;
+  created_at: string;
+}
+
 export interface SaleLine {
   product_id: string;
   product_name: string;
@@ -226,6 +271,7 @@ export interface Sale {
   customer_name: string | null;
   sale_type: "retail" | "wholesale";
   sale_date: string;
+  due_date: string;
   lines: SaleLine[];
   total_amount: string;
   amount_paid: string;
