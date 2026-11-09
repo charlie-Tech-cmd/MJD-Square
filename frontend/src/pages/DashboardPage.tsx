@@ -26,8 +26,8 @@ export function DashboardPage({ user }: DashboardPageProps) {
       <div className="page-heading dashboard-heading">
         <div>
           <span className="eyebrow">{today.toUpperCase()}</span>
-          <h1>Good to see you, {user.full_name.split(" ")[0]}</h1>
-          <p>Your business workspace is ready for its first setup steps.</p>
+          <h1>Welcome to MJD Square</h1>
+          <p>Your workspace is ready. Check stock, record a sale, or review your business activity.</p>
         </div>
         {canManageSettings && (
           <Link className="button button-secondary" to="/settings">
