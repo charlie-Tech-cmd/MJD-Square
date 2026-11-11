@@ -11,7 +11,6 @@ import type { Supplier, User } from "../types";
 
 const supplierSchema = z.object({
   name: z.string().trim().min(1, "Enter the supplier's name.").max(160),
-  contact_person: z.string().max(160),
   phone: z.string().max(40),
   email: z.union([z.email("Enter a valid email address."), z.literal("")]),
   address: z.string().max(500),
@@ -46,7 +45,6 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
     resolver: zodResolver(supplierSchema),
     defaultValues: {
       name: "",
-      contact_person: "",
       phone: "",
       email: "",
       address: "",
@@ -96,7 +94,6 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
   const submit = form.handleSubmit((values) => {
     const fields = {
       name: values.name,
-      contact_person: values.contact_person.trim() || null,
       phone: values.phone.trim() || null,
       email: values.email || null,
       address: values.address.trim() || null,
@@ -120,7 +117,6 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
     setEditingSupplier(supplier);
     form.reset({
       name: supplier.name,
-      contact_person: supplier.contact_person ?? "",
       phone: supplier.phone ?? "",
       email: supplier.email ?? "",
       address: supplier.address ?? "",
@@ -138,7 +134,7 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
         <div>
           <span className="eyebrow">BUSINESS RECORDS</span>
           <h1>Suppliers</h1>
-          <p>Track supplier contacts and documented opening amounts payable.</p>
+          <p>Track supplier details and documented opening amounts payable.</p>
         </div>
       </div>
       <div className="records-layout">
@@ -154,22 +150,21 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
               {form.formState.errors.name && <small className="field-error">{form.formState.errors.name.message}</small>}
             </label>
             <div className="settings-field-row">
-              <label className="field"><span>Contact person</span><input {...form.register("contact_person")} /></label>
-              <label className="field"><span>Phone</span><input {...form.register("phone")} /></label>
-            </div>
-            <div className="settings-field-row">
-              <label className="field">
-                <span>Email</span>
-                <input type="email" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
-                {form.formState.errors.email && <small className="field-error">{form.formState.errors.email.message}</small>}
-              </label>
+              <label className="field"><span>Phone number</span><input {...form.register("phone")} /></label>
               <label className="field">
                 <span>Payment terms (days)</span>
                 <input inputMode="numeric" {...form.register("payment_terms_days")} aria-invalid={Boolean(form.formState.errors.payment_terms_days)} />
                 {form.formState.errors.payment_terms_days && <small className="field-error">{form.formState.errors.payment_terms_days.message}</small>}
               </label>
             </div>
-            <label className="field"><span>Address</span><input {...form.register("address")} /></label>
+            <div className="settings-field-row">
+              <label className="field">
+                <span>Email (optional)</span>
+                <input type="email" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
+                {form.formState.errors.email && <small className="field-error">{form.formState.errors.email.message}</small>}
+              </label>
+              <label className="field"><span>Address</span><input {...form.register("address")} /></label>
+            </div>
             {canRecordOpeningBalance && !editingSupplier && (
               <>
                 <div className="settings-field-row">

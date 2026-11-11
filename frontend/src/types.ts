@@ -93,7 +93,6 @@ export interface Supplier {
 
 export interface SupplierCreateInput {
   name: string;
-  contact_person: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
@@ -107,7 +106,7 @@ export interface SupplierCreateInput {
 export type SupplierUpdateInput = Partial<
   Pick<
     SupplierCreateInput,
-    "name" | "contact_person" | "phone" | "email" | "address" | "payment_terms_days" | "notes"
+    "name" | "phone" | "email" | "address" | "payment_terms_days" | "notes"
   >
 > & { is_active?: boolean };
 
@@ -207,6 +206,21 @@ export interface TransactionPayment {
   reference: string | null;
   notes: string;
   received_at: string;
+  receipts: PaymentEvidence[];
+}
+
+export interface PaymentEvidence {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  uploaded_at: string;
+}
+
+export interface AccountPaymentHistory extends TransactionPayment {
+  account_type: "customer" | "supplier";
+  account_name: string;
 }
 
 export type ReminderStatus =

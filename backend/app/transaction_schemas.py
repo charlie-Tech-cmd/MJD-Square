@@ -101,6 +101,17 @@ class PaymentCreate(BaseModel):
         return self
 
 
+class PaymentEvidenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+    uploaded_at: datetime
+
+
 class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -110,6 +121,7 @@ class PaymentResponse(BaseModel):
     reference: str | None
     notes: str
     received_at: datetime
+    receipts: list[PaymentEvidenceResponse] = Field(default_factory=list)
 
 
 class AccountPaymentResponse(BaseModel):
@@ -121,6 +133,12 @@ class AccountPaymentResponse(BaseModel):
     reference: str | None
     notes: str
     received_at: datetime
+    receipts: list[PaymentEvidenceResponse] = Field(default_factory=list)
+
+
+class AccountPaymentHistoryResponse(AccountPaymentResponse):
+    account_type: Literal["customer", "supplier"]
+    account_name: str
 
 
 class SaleLineResponse(BaseModel):

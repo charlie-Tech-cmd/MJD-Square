@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { formatNaira, formatQuantity } from "../lib/format";
 import { hasPermission } from "../lib/permissions";
+import { PaymentEvidenceFiles } from "../components/PaymentEvidenceFiles";
 import type { Purchase, User } from "../types";
 
 const todayInBusinessTimezone = () =>
@@ -58,6 +59,7 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
   const methods = settingsQuery.data?.payment_methods ?? [];
   const canCreate = hasPermission(user, "purchases:create");
   const canPay = hasPermission(user, "payments:create");
+  const canReadPayments = hasPermission(user, "payments:read");
   const form = useForm<PurchaseValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
@@ -253,9 +255,20 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
                   )}
                 </div>
                 {purchase.payments.map((payment) => (
-                  <small className="transaction-payment" key={payment.id}>
-                    {formatNaira(payment.amount)} paid · {payment.method}{payment.reference ? ` · ${payment.reference}` : ""}
-                  </small>
+                  <div className="purchase-payment-evidence" key={payment.id}>
+                    <small className="transaction-payment">
+                      {formatNaira(payment.amount)} paid · {payment.method}{payment.reference ? ` · ${payment.reference}` : ""}
+                    </small>
+                    <PaymentEvidenceFiles
+                      canDownload={canReadPayments}
+                      canUpload={canPay}
+                      canDelete={user.role.name === "Owner"}
+                      onUploaded={() => void queryClient.invalidateQueries({ queryKey: ["purchases"] })}
+                      onDeleted={() => void queryClient.invalidateQueries({ queryKey: ["purchases"] })}
+                      paymentId={payment.id}
+                      receipts={payment.receipts}
+                    />
+                  </div>
                 ))}
                 {paymentFor?.id === purchase.id && (
                   <form className="payment-inline-form" onSubmit={(event) => {

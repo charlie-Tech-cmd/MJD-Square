@@ -170,7 +170,7 @@ export function CustomersPage({ user }: CustomersPageProps) {
             <div className="settings-field-row">
               <label className="field"><span>WhatsApp number</span><input {...form.register("whatsapp")} /></label>
               <label className="field">
-                <span>Email</span>
+                <span>Email (optional)</span>
                 <input type="email" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
                 {form.formState.errors.email && <small className="field-error">{form.formState.errors.email.message}</small>}
               </label>

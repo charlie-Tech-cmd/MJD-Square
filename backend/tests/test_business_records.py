@@ -82,6 +82,20 @@ def test_owner_can_create_customers_and_document_opening_balances(client, db_ses
     assert db_session.scalar(select(AuditLog).where(AuditLog.action == "customer.update"))
 
 
+def test_owner_can_create_customer_without_email(client, db_session: Session):
+    create_user(db_session, "Owner", "owner@example.com")
+    csrf = sign_in(client, "owner@example.com")
+
+    created = client.post(
+        "/api/v1/customers",
+        headers={"X-CSRF-Token": csrf},
+        json={"name": "Walk-in customer"},
+    )
+
+    assert created.status_code == 201
+    assert created.json()["email"] is None
+
+
 def test_shop_staff_cannot_record_opening_balances(client, db_session: Session):
     create_user(db_session, "Shop staff", "staff@example.com")
     csrf = sign_in(client, "staff@example.com")

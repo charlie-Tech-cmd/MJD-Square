@@ -8,6 +8,7 @@ import { ApiError, api } from "../lib/api";
 import { formatNaira, formatQuantity } from "../lib/format";
 import { hasPermission } from "../lib/permissions";
 import { PaymentReceiptDialog, type PaymentReceiptDetails } from "../components/PaymentReceiptDialog";
+import { PaymentEvidenceFiles } from "../components/PaymentEvidenceFiles";
 import type { Sale, TransactionPayment, User } from "../types";
 
 const todayInBusinessTimezone = () =>
@@ -91,6 +92,7 @@ export function SalesPage({ user }: SalesPageProps) {
   const methods = settingsQuery.data?.payment_methods ?? [];
   const canCreate = hasPermission(user, "sales:create");
   const canTakePayment = hasPermission(user, "payments:create");
+  const canReadPayments = hasPermission(user, "payments:read");
   const buildReceipt = (
     sale: Sale,
     payment: TransactionPayment,
@@ -329,22 +331,33 @@ export function SalesPage({ user }: SalesPageProps) {
                   }} type="button">Print invoice</button>
                 </div>
                 {sale.payments.map((payment) => (
-                  <div className="transaction-payment-row" key={payment.id}>
-                    <small className="transaction-payment">
-                      {formatNaira(payment.amount)} received · {payment.method}
-                      {payment.reference ? ` · ${payment.reference}` : ""}
-                    </small>
-                    <button
-                      className="button button-secondary record-action"
-                      onClick={() => setPaymentReceipt(buildReceipt(
-                        sale,
-                        payment,
-                        balancesAfterPayments(sale).get(payment.id) ?? sale.balance_due,
-                      ))}
-                      type="button"
-                    >
-                      Payment receipt
-                    </button>
+                  <div key={payment.id}>
+                    <div className="transaction-payment-row">
+                      <small className="transaction-payment">
+                        {formatNaira(payment.amount)} received · {payment.method}
+                        {payment.reference ? ` · ${payment.reference}` : ""}
+                      </small>
+                      <button
+                        className="button button-secondary record-action"
+                        onClick={() => setPaymentReceipt(buildReceipt(
+                          sale,
+                          payment,
+                          balancesAfterPayments(sale).get(payment.id) ?? sale.balance_due,
+                        ))}
+                        type="button"
+                      >
+                        Payment receipt
+                      </button>
+                    </div>
+                    <PaymentEvidenceFiles
+                      canDownload={canReadPayments}
+                      canUpload={canTakePayment}
+                      canDelete={user.role.name === "Owner"}
+                      onUploaded={() => void queryClient.invalidateQueries({ queryKey: ["sales"] })}
+                      onDeleted={() => void queryClient.invalidateQueries({ queryKey: ["sales"] })}
+                      paymentId={payment.id}
+                      receipts={payment.receipts}
+                    />
                   </div>
                 ))}
                 {paymentFor?.id === sale.id && (

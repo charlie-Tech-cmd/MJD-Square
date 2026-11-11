@@ -73,6 +73,7 @@ Requirements for the no-Docker local setup: Python 3.12+, Node.js 20.19+ (or 22.
    Open `http://localhost:5173`. Vite proxies `/api` and `/health` to FastAPI on port 8000. If the API is stopped, the app explains that the backend/database is unavailable and provides a retry action.
 
 SQLite is intended for a single local development instance, not concurrent production traffic. The production configuration rejects SQLite and requires PostgreSQL plus secure cookies.
+In local development, payment receipts are stored privately under `backend/data/payment-receipts/` by default, so uploads work without an S3 account. Keep this directory in local backups as needed; production requires the private S3-compatible storage described below.
 
 FastAPI's interactive API documentation is available at `http://localhost:8000/docs`; liveness and database readiness checks are at `/health/live` and `/health/ready`.
 
@@ -100,9 +101,10 @@ The Vercel configuration uses two projects connected to this repository so the s
    - `COOKIE_SECURE=true`
    - `CORS_ORIGINS` and `FRONTEND_URL` set to the frontend's exact HTTPS production origin
    - `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_STARTTLS=true`, and `MAIL_FROM` for password recovery email
+   - `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY` for a **private** S3-compatible bucket; `S3_ENDPOINT_URL` is optional for compatible providers. Grant the API credentials access only to the receipt bucket, and keep public access/block-public-access enabled.
 5. Before serving traffic, apply migrations to the managed database with `alembic upgrade head` from `backend/`, using a trusted environment that has the production database URL and never committing credentials. Create the initial owner with `python -m app.cli create-admin` from the same trusted environment.
 
-The database, SMTP account, and Vercel environment variables must be provisioned by the operator; deployments do not create or migrate a production database automatically. Configure a separate staging database and matching frontend/API projects before enabling Preview deployments, otherwise previews can use the production API rewrite. Verify `/health/ready`, sign-in, password recovery, and a test transaction after deployment. A Vercel deployment scaffold is not a substitute for backup/restore drills, financial control acceptance, or production monitoring.
+The database, SMTP account, private object-storage bucket, and Vercel environment variables must be provisioned by the operator; deployments do not create or migrate a production database automatically. Receipt uploads accept PDF, JPEG, PNG, and WebP files up to 10 MiB. Receipt objects are retained in private storage and downloaded through a short-lived signed URL after staff permission checks. Include the bucket in your backup, retention, and recovery plan; deleting a payment record does not delete its evidence. Configure a separate staging database and matching frontend/API projects before enabling Preview deployments, otherwise previews can use the production API rewrite. Verify `/health/ready`, sign-in, password recovery, uploads and authorized downloads, and a test transaction after deployment. A Vercel deployment scaffold is not a substitute for backup/restore drills, financial control acceptance, or production monitoring.
 
 ## Database and recovery
 

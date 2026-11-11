@@ -6,6 +6,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { formatNaira } from "../lib/format";
+import { PaymentEvidenceFiles } from "../components/PaymentEvidenceFiles";
+import type { User } from "../types";
 
 const todayInBusinessTimezone = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(new Date());
@@ -36,7 +38,7 @@ function downloadCsv(filename: string, rows: string[][]) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
-export function ReportsPage() {
+export function ReportsPage({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const [range, setRange] = useState<DateRange>({
     from: todayInBusinessTimezone(),
@@ -53,6 +55,10 @@ export function ReportsPage() {
   const outstandingQuery = useQuery({
     queryKey: ["reports", "outstanding"],
     queryFn: api.outstandingBalances,
+  });
+  const accountPaymentsQuery = useQuery({
+    queryKey: ["account-payments"],
+    queryFn: api.accountPayments,
   });
   const settingsQuery = useQuery({ queryKey: ["business-settings"], queryFn: api.getSettings });
   const [paymentTarget, setPaymentTarget] = useState<{
@@ -78,6 +84,7 @@ export function ReportsPage() {
       setPaymentAmount("");
       setPaymentReference("");
       await queryClient.invalidateQueries({ queryKey: ["reports"] });
+      await queryClient.invalidateQueries({ queryKey: ["account-payments"] });
     },
   });
 
@@ -108,6 +115,7 @@ export function ReportsPage() {
 
       {summaryQuery.isError && <p className="form-alert" role="alert">{summaryQuery.error instanceof ApiError ? summaryQuery.error.message : "Unable to load report summary."}</p>}
       {outstandingQuery.isError && <p className="form-alert" role="alert">{outstandingQuery.error instanceof ApiError ? outstandingQuery.error.message : "Unable to load outstanding balances."}</p>}
+      {accountPaymentsQuery.isError && <p className="form-alert" role="alert">{accountPaymentsQuery.error instanceof ApiError ? accountPaymentsQuery.error.message : "Unable to load account payment history."}</p>}
       {settingsQuery.isError && <p className="form-alert" role="alert">{settingsQuery.error instanceof ApiError ? settingsQuery.error.message : "Unable to load payment methods."}</p>}
       {summaryQuery.isPending || outstandingQuery.isPending || settingsQuery.isPending ? (
         <div className="loading-panel"><LoaderCircle className="spin" size={20} /> Loading reports…</div>
@@ -190,6 +198,40 @@ export function ReportsPage() {
                   <button className="button button-primary" disabled={paymentMutation.isPending || !settingsQuery.data?.payment_methods.length} type="submit">{paymentMutation.isPending ? "Saving…" : "Save payment"}</button>
                 </div>
               </form>
+            )}
+          </section>
+          <section className="settings-card transaction-history-card account-payment-history">
+            <div className="settings-card-heading report-section-heading">
+              <span className="settings-heading-icon"><BarChart3 size={18} /></span>
+              <div><h2>Account payment proof</h2><p>Saved receipts for customer and supplier account payments.</p></div>
+            </div>
+            {accountPaymentsQuery.isPending ? (
+              <div className="loading-panel"><LoaderCircle className="spin" size={18} /> Loading account payments…</div>
+            ) : accountPaymentsQuery.data?.length ? (
+              <div className="account-payment-history-list">
+                {accountPaymentsQuery.data.map((payment) => (
+                  <article className="account-payment-history-row" key={payment.id}>
+                    <div>
+                      <strong>{payment.account_name}</strong>
+                      <small>{payment.account_type === "customer" ? "Customer payment received" : "Supplier payment made"} · {payment.method} · {new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeZone: "Africa/Lagos" }).format(new Date(payment.received_at))}</small>
+                      {payment.reference && <small>Reference: {payment.reference}</small>}
+                    </div>
+                    <strong>{formatNaira(payment.amount)}</strong>
+                    <PaymentEvidenceFiles
+                      accountPayment
+                      canDownload
+                      canUpload
+                      canDelete={user.role.name === "Owner"}
+                      onUploaded={() => void queryClient.invalidateQueries({ queryKey: ["account-payments"] })}
+                      onDeleted={() => void queryClient.invalidateQueries({ queryKey: ["account-payments"] })}
+                      paymentId={payment.id}
+                      receipts={payment.receipts}
+                    />
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-staff">No customer or supplier account payments have been recorded.</p>
             )}
           </section>
           <button className="button button-secondary report-export" onClick={() => downloadCsv("mjd-square-period-summary.csv", [

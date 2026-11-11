@@ -148,7 +148,7 @@ export default function App() {
         <Route
           element={
             hasPermission(sessionQuery.data, "reports:read")
-              ? <ReportsPage />
+              ? <ReportsPage user={sessionQuery.data} />
               : <Navigate replace to="/dashboard" />
           }
           path="/reports"

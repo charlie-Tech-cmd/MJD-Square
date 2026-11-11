@@ -64,6 +64,11 @@ class Settings(BaseSettings):
             "BREVO_SENDER_EMAIL",
         ),
     )
+    s3_endpoint_url: str | None = None
+    s3_region: str | None = None
+    s3_bucket: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
 
     @field_validator("app_env")
     @classmethod
@@ -81,6 +86,34 @@ class Settings(BaseSettings):
                 raise ValueError("Production requires SMTP with STARTTLS and a sender address.")
             if not self.frontend_url.startswith("https://"):
                 raise ValueError("Production FRONTEND_URL must use HTTPS.")
+            if not all(
+                (
+                    self.s3_region,
+                    self.s3_bucket,
+                    self.s3_access_key_id,
+                    self.s3_secret_access_key,
+                )
+            ):
+                raise ValueError(
+                    "Production requires configured private S3-compatible receipt storage."
+                )
+            if self.s3_endpoint_url:
+                try:
+                    endpoint = urlsplit(self.s3_endpoint_url)
+                    endpoint.port
+                except ValueError as exc:
+                    raise ValueError("S3_ENDPOINT_URL must be a valid HTTPS endpoint.") from exc
+                if (
+                    endpoint.scheme != "https"
+                    or not endpoint.hostname
+                    or endpoint.username is not None
+                    or endpoint.password is not None
+                    or endpoint.query
+                    or endpoint.fragment
+                ):
+                    raise ValueError(
+                        "Production S3_ENDPOINT_URL must use HTTPS without credentials."
+                    )
 
             origins = [origin.strip() for origin in self.cors_origins.split(",")]
 
@@ -114,6 +147,11 @@ class Settings(BaseSettings):
 
         if bool(self.smtp_username) != bool(self.smtp_password):
             raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be configured together.")
+        s3_credentials = (self.s3_access_key_id, self.s3_secret_access_key)
+        if bool(s3_credentials[0]) != bool(s3_credentials[1]):
+            raise ValueError(
+                "S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be configured together."
+            )
         if not 1 <= self.smtp_port <= 65535:
             raise ValueError("SMTP_PORT must be between 1 and 65535.")
         if self.app_env != "development" and self.database_url.startswith("sqlite"):

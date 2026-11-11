@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.auth import router as auth_router
 from app.api.customers import router as customers_router
 from app.api.inventory import router as inventory_router
+from app.api.payment_evidence import router as payment_evidence_router
 from app.api.roles import router as roles_router
 from app.api.settings import router as settings_router
 from app.api.suppliers import router as suppliers_router
@@ -19,4 +20,5 @@ api_router.include_router(customers_router)
 api_router.include_router(suppliers_router)
 api_router.include_router(inventory_router)
 api_router.include_router(transactions_router)
+api_router.include_router(payment_evidence_router)
 api_router.include_router(workflows_router)

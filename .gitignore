@@ -10,6 +10,7 @@ htmlcov/
 .ruff_cache/
 backend/data/*.db
 backend/data/*.db-*
+/backend/data/payment-receipts/
 /data/*.db
 /data/*.db-*
 node_modules/

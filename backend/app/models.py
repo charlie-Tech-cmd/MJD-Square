@@ -410,6 +410,41 @@ class StockMovement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class PaymentEvidence(Base):
+    __tablename__ = "payment_evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "(payment_id IS NOT NULL AND account_payment_id IS NULL) OR "
+            "(payment_id IS NULL AND account_payment_id IS NOT NULL)",
+            name="ck_payment_evidence_single_payment",
+        ),
+        CheckConstraint(
+            "size_bytes > 0 AND size_bytes <= 10485760",
+            name="ck_payment_evidence_size_limit",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    payment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("payments.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    account_payment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("account_payments.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    object_key: Mapped[str] = mapped_column(String(500), unique=True, nullable=False)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    uploaded_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    payment: Mapped["Payment | None"] = relationship(back_populates="receipts")
+    account_payment: Mapped["AccountPayment | None"] = relationship(back_populates="receipts")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class Sale(Base):
     __tablename__ = "sales"
     __table_args__ = (
@@ -538,6 +573,9 @@ class Payment(Base):
     created_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    receipts: Mapped[list["PaymentEvidence"]] = relationship(
+        back_populates="payment", order_by="PaymentEvidence.uploaded_at", lazy="selectin"
+    )
 
 
 class AccountPayment(Base):
@@ -565,6 +603,11 @@ class AccountPayment(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     created_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    receipts: Mapped[list["PaymentEvidence"]] = relationship(
+        back_populates="account_payment",
+        order_by="PaymentEvidence.uploaded_at",
+        lazy="selectin",
     )
 
 

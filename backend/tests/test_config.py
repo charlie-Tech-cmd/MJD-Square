@@ -15,6 +15,10 @@ def production_settings(cors_origins: str) -> Settings:
         smtp_host="smtp.example.com",
         smtp_use_starttls=True,
         mail_from="noreply@example.com",
+        s3_region="auto",
+        s3_bucket="payment-evidence",
+        s3_access_key_id="test-access-key",
+        s3_secret_access_key="test-secret-key",
     )
 
 
@@ -49,6 +53,41 @@ def test_production_accepts_explicit_https_origins():
 def test_production_rejects_invalid_cors_origins(origins):
     with pytest.raises(ValidationError):
         production_settings(origins)
+
+
+def test_production_requires_receipt_storage():
+    with pytest.raises(ValidationError, match="private S3-compatible receipt storage"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            database_url="postgresql+psycopg://user:password@localhost/mjd_square",
+            cookie_secure=True,
+            cors_origins="https://app.example.com",
+            frontend_url="https://app.example.com",
+            smtp_host="smtp.example.com",
+            smtp_use_starttls=True,
+            mail_from="noreply@example.com",
+        )
+
+
+def test_production_rejects_insecure_receipt_storage_endpoint():
+    with pytest.raises(ValidationError, match="S3_ENDPOINT_URL must use HTTPS"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            database_url="postgresql://localhost/mjd_square",
+            cookie_secure=True,
+            cors_origins="https://app.example.com",
+            frontend_url="https://app.example.com",
+            smtp_host="smtp.example.com",
+            smtp_use_starttls=True,
+            mail_from="noreply@example.com",
+            s3_region="auto",
+            s3_bucket="payment-evidence",
+            s3_access_key_id="test-access-key",
+            s3_secret_access_key="test-secret-key",
+            s3_endpoint_url="http://storage.example.com",
+        )
 
 
 def test_development_preserves_localhost_http_origin():

@@ -368,6 +368,25 @@ button { cursor: pointer; }
 .transaction-payment-row { display: flex; align-items: center; gap: 8px; margin: 7px 0 0 38px; }
 .transaction-payment-row .transaction-payment { margin: 0; }
 .transaction-payment-row .button { min-height: 27px; padding: 0 7px; font-size: 9px; }
+.payment-evidence { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 5px 0 0 38px; }
+.payment-evidence-upload { position: relative; min-height: 27px; overflow: hidden; padding: 0 8px; font-size: 9px; cursor: pointer; }
+.payment-evidence-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+.payment-evidence-upload:focus-within { outline: 3px solid rgba(22, 138, 120, .25); outline-offset: 2px; }
+.payment-evidence-list { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; padding: 0; list-style: none; }
+.payment-evidence-list li { display: flex; align-items: baseline; gap: 5px; color: #53647a; font-size: 9px; }
+.payment-evidence-delete { min-height: 23px; padding: 0 5px; color: #a53d3d; }
+.payment-evidence-list a { color: #247567; font-weight: 650; text-decoration: underline; text-underline-offset: 2px; }
+.payment-evidence-list small, .payment-evidence > small { color: #8290a0; font-size: 9px; }
+.payment-evidence-error { color: #a53d3d !important; }
+.payment-evidence-success { color: #247567 !important; }
+.purchase-payment-evidence { margin-top: 6px; }
+.purchase-payment-evidence .payment-evidence { margin-left: 0; }
+.account-payment-history-list { display: grid; }
+.account-payment-history-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 13px 0; border-bottom: 1px solid #f0f2f5; color: #35465c; font-size: 11px; }
+.account-payment-history-row > div:first-child { display: flex; flex-direction: column; gap: 4px; }
+.account-payment-history-row > div:first-child small { color: #8290a0; font-size: 9px; }
+.account-payment-history-row > strong { white-space: nowrap; }
+.account-payment-history-row .payment-evidence { grid-column: 1 / -1; margin: 0; }
 .receipt-modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; overflow-y: auto; place-items: center; padding: 20px; background: rgba(15, 29, 45, .48); }
 .receipt-dialog { width: min(100%, 610px); max-height: calc(100vh - 40px); overflow-y: auto; padding: 20px; border: 1px solid #e5eaf0; border-radius: 10px; background: #f7f9fb; box-shadow: 0 18px 55px rgba(15, 29, 45, .22); }
 .receipt-dialog-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }

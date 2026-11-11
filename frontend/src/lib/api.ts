@@ -1,6 +1,7 @@
 import type {
   ApiErrorPayload,
   BusinessSettings,
+  AccountPaymentHistory,
   Customer,
   CustomerCreateInput,
   CustomerUpdateInput,
@@ -25,6 +26,7 @@ import type {
   UnitOfMeasure,
   TransactionPayment,
   TransactionHistoryEntry,
+  PaymentEvidence,
   User,
 } from "../types";
 
@@ -59,7 +61,9 @@ async function request<T>(
 ): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
-  if (options.body) headers.set("Content-Type", "application/json");
+  if (options.body && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
   const csrfExemptPaths = ["/auth/login", "/auth/forgot-password", "/auth/reset-password"];
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && !csrfExemptPaths.includes(path)) {
     const csrfToken = readCsrfToken(document.cookie);
@@ -274,6 +278,29 @@ export const api = {
     });
   },
 
+  uploadPaymentEvidence(paymentId: string, file: File, accountPayment = false): Promise<PaymentEvidence> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const path = accountPayment
+      ? `/account-payments/${encodeURIComponent(paymentId)}/receipts`
+      : `/payments/${encodeURIComponent(paymentId)}/receipts`;
+    return request<PaymentEvidence>(path, { method: "POST", body: formData });
+  },
+
+  paymentEvidenceDownloadPath(receiptId: string): string {
+    return `${API_ROOT}/payment-receipts/${encodeURIComponent(receiptId)}/download`;
+  },
+
+  deletePaymentEvidence(receiptId: string): Promise<void> {
+    return request<void>(`/payment-receipts/${encodeURIComponent(receiptId)}`, {
+      method: "DELETE",
+    });
+  },
+
+  accountPayments(): Promise<AccountPaymentHistory[]> {
+    return request<AccountPaymentHistory[]>("/account-payments");
+  },
+
   paymentReminders(): Promise<PaymentReminder[]> {
     return request<PaymentReminder[]>("/payment-reminders");
   },
@@ -317,8 +344,8 @@ export const api = {
     method: string;
     reference: string | null;
     notes: string;
-  }): Promise<void> {
-    return request<void>(`/purchases/${encodeURIComponent(purchaseId)}/payments`, {
+  }): Promise<TransactionPayment> {
+    return request<TransactionPayment>(`/purchases/${encodeURIComponent(purchaseId)}/payments`, {
       method: "POST",
       body: JSON.stringify(payment),
     });
