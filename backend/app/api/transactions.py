@@ -26,6 +26,7 @@ from app.models import (
     Supplier,
     SupplierOpeningBalance,
     User,
+    WhatsAppReceipt,
     utc_now,
 )
 from app.permissions import require_csrf, require_permission
@@ -42,6 +43,7 @@ from app.transaction_schemas import (
     SaleLineResponse,
     SaleResponse,
 )
+from app.whatsapp_service import prepare_payment_receipt, send_payment_receipt
 
 router = APIRouter(tags=["transactions"])
 CENT = Decimal("0.01")
@@ -276,6 +278,7 @@ def create_sale(
     if payload.payment_amount > 0:
         require_payment_permission(actor)
         validate_method(db, payload.payment_method)
+    customer = None
     if payload.customer_id is not None:
         customer = db.get(Customer, payload.customer_id)
         if customer is None or not customer.is_active:
@@ -377,6 +380,7 @@ def create_sale(
                 created_by=actor.id,
             )
         )
+    whatsapp_receipt: WhatsAppReceipt | None = None
     if payload.payment_amount > 0:
         payment = add_payment(
             db,
@@ -385,6 +389,14 @@ def create_sale(
             payload.payment_method,
             sale=sale,
             reference=payload.payment_reference,
+        )
+        db.flush()
+        whatsapp_receipt = prepare_payment_receipt(
+            db,
+            payment,
+            customer,
+            sale.invoice_number,
+            total - payment.amount,
         )
         add_payment_audit(db, actor, payment, "sale", sale.id)
     db.add(
@@ -402,13 +414,14 @@ def create_sale(
     )
     try:
         db.commit()
-        sale = db.scalar(sale_query().where(Sale.id == sale.id))
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="The sale could not be recorded because a record constraint was violated.",
         ) from exc
+    send_payment_receipt(db, whatsapp_receipt)
+    sale = db.scalar(sale_query().where(Sale.id == sale.id))
     return sale_response(sale)
 
 
@@ -446,16 +459,25 @@ def record_sale_payment(
         reference=payload.reference,
         notes=payload.notes,
     )
+    db.flush()
+    whatsapp_receipt = prepare_payment_receipt(
+        db,
+        payment,
+        sale.customer,
+        sale.invoice_number,
+        sale.total_amount - paid - payment.amount,
+    )
     add_payment_audit(db, actor, payment, "sale", sale.id)
     try:
         db.commit()
-        db.refresh(payment)
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="The payment could not be recorded.",
         ) from exc
+    send_payment_receipt(db, whatsapp_receipt)
+    db.refresh(payment)
     return PaymentResponse.model_validate(payment)
 
 
@@ -485,6 +507,7 @@ def create_purchase(
     if payload.payment_amount > 0:
         require_payment_permission(actor)
         validate_method(db, payload.payment_method)
+    supplier = None
     if payload.supplier_id is not None:
         supplier = db.get(Supplier, payload.supplier_id)
         if supplier is None or not supplier.is_active:
@@ -566,6 +589,7 @@ def create_purchase(
                 created_by=actor.id,
             )
         )
+    whatsapp_receipt: WhatsAppReceipt | None = None
     if payload.payment_amount > 0:
         payment = add_payment(
             db,
@@ -574,6 +598,15 @@ def create_purchase(
             payload.payment_method,
             purchase=purchase,
             reference=payload.payment_reference,
+        )
+        db.flush()
+        whatsapp_receipt = prepare_payment_receipt(
+            db,
+            payment,
+            supplier,
+            purchase.purchase_number,
+            total - payment.amount,
+            payment_direction="paid",
         )
         add_payment_audit(db, actor, payment, "purchase", purchase.id)
     db.add(
@@ -591,13 +624,14 @@ def create_purchase(
     )
     try:
         db.commit()
-        purchase = db.scalar(purchase_query().where(Purchase.id == purchase.id))
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="The purchase could not be recorded because a record constraint was violated.",
         ) from exc
+    send_payment_receipt(db, whatsapp_receipt)
+    purchase = db.scalar(purchase_query().where(Purchase.id == purchase.id))
     return purchase_response(purchase)
 
 
@@ -635,16 +669,26 @@ def record_purchase_payment(
         reference=payload.reference,
         notes=payload.notes,
     )
+    db.flush()
+    whatsapp_receipt = prepare_payment_receipt(
+        db,
+        payment,
+        purchase.supplier,
+        purchase.purchase_number,
+        purchase.total_amount - paid - payment.amount,
+        payment_direction="paid",
+    )
     add_payment_audit(db, actor, payment, "purchase", purchase.id)
     try:
         db.commit()
-        db.refresh(payment)
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="The payment could not be recorded.",
         ) from exc
+    send_payment_receipt(db, whatsapp_receipt)
+    db.refresh(payment)
     return PaymentResponse.model_validate(payment)
 
 
@@ -688,6 +732,14 @@ def record_customer_account_payment(
             detail="The payment exceeds the customer's outstanding balance.",
         )
     payment = add_account_payment(db, actor, payload, customer_id=customer.id)
+    db.flush()
+    whatsapp_receipt = prepare_payment_receipt(
+        db,
+        payment,
+        customer,
+        "Customer account",
+        outstanding - payment.amount,
+    )
     db.add(
         AuditLog(
             actor_user_id=actor.id,
@@ -698,6 +750,7 @@ def record_customer_account_payment(
         )
     )
     db.commit()
+    send_payment_receipt(db, whatsapp_receipt)
     db.refresh(payment)
     return AccountPaymentResponse.model_validate(payment)
 
@@ -744,6 +797,15 @@ def record_supplier_account_payment(
             detail="The payment exceeds the supplier's outstanding balance.",
         )
     payment = add_account_payment(db, actor, payload, supplier_id=supplier.id)
+    db.flush()
+    whatsapp_receipt = prepare_payment_receipt(
+        db,
+        payment,
+        supplier,
+        "Supplier account",
+        outstanding - payment.amount,
+        payment_direction="paid",
+    )
     db.add(
         AuditLog(
             actor_user_id=actor.id,
@@ -754,6 +816,7 @@ def record_supplier_account_payment(
         )
     )
     db.commit()
+    send_payment_receipt(db, whatsapp_receipt)
     db.refresh(payment)
     return AccountPaymentResponse.model_validate(payment)
 

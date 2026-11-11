@@ -13,6 +13,7 @@ const customerSchema = z.object({
   name: z.string().trim().min(1, "Enter the customer's name.").max(160),
   phone: z.string().max(40),
   whatsapp: z.string().max(40),
+  whatsapp_receipt_opted_in: z.boolean(),
   email: z.union([z.email("Enter a valid email address."), z.literal("")]),
   address: z.string().max(500),
   customer_type: z.enum(["retail", "wholesale", "both"]),
@@ -27,6 +28,9 @@ const customerSchema = z.object({
   }
   if (hasOpeningBalance && !values.opening_balance_notes.trim()) {
     context.addIssue({ code: "custom", path: ["opening_balance_notes"], message: "Add the source of this opening balance." });
+  }
+  if (values.whatsapp_receipt_opted_in && !values.whatsapp.trim()) {
+    context.addIssue({ code: "custom", path: ["whatsapp"], message: "Enter the customer's WhatsApp number." });
   }
 });
 
@@ -48,6 +52,7 @@ export function CustomersPage({ user }: CustomersPageProps) {
       name: "",
       phone: "",
       whatsapp: "",
+      whatsapp_receipt_opted_in: false,
       email: "",
       address: "",
       customer_type: "retail",
@@ -98,6 +103,7 @@ export function CustomersPage({ user }: CustomersPageProps) {
       name: values.name,
       phone: values.phone.trim() || null,
       whatsapp: values.whatsapp.trim() || null,
+      whatsapp_receipt_opted_in: values.whatsapp_receipt_opted_in,
       email: values.email || null,
       address: values.address.trim() || null,
       customer_type: values.customer_type,
@@ -122,6 +128,7 @@ export function CustomersPage({ user }: CustomersPageProps) {
       name: customer.name,
       phone: customer.phone ?? "",
       whatsapp: customer.whatsapp ?? "",
+      whatsapp_receipt_opted_in: customer.whatsapp_receipt_opted_in,
       email: customer.email ?? "",
       address: customer.address ?? "",
       customer_type: customer.customer_type,
@@ -168,13 +175,30 @@ export function CustomersPage({ user }: CustomersPageProps) {
               </label>
             </div>
             <div className="settings-field-row">
-              <label className="field"><span>WhatsApp number</span><input {...form.register("whatsapp")} /></label>
+              <label className="field">
+                <span>WhatsApp number</span>
+                <input {...form.register("whatsapp", {
+                  onChange: (event) => {
+                    if (editingCustomer && event.target.value.trim() !== (editingCustomer.whatsapp ?? "")) {
+                      form.setValue("whatsapp_receipt_opted_in", false);
+                    }
+                  },
+                })} />
+                {form.formState.errors.whatsapp && <small className="field-error">{form.formState.errors.whatsapp.message}</small>}
+              </label>
               <label className="field">
                 <span>Email (optional)</span>
                 <input type="email" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} />
                 {form.formState.errors.email && <small className="field-error">{form.formState.errors.email.message}</small>}
               </label>
             </div>
+            <label className="field whatsapp-consent-field">
+              <span>
+                <input type="checkbox" {...form.register("whatsapp_receipt_opted_in")} />
+                Customer agreed to receive payment receipts on WhatsApp
+              </span>
+              <small>Only send after explicit customer consent. Changing the WhatsApp number clears this consent.</small>
+            </label>
             <label className="field"><span>Address</span><input {...form.register("address")} /></label>
             {canRecordOpeningBalance && !editingCustomer && (
               <>

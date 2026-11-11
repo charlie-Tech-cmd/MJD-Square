@@ -122,6 +122,7 @@ class PaymentResponse(BaseModel):
     notes: str
     received_at: datetime
     receipts: list[PaymentEvidenceResponse] = Field(default_factory=list)
+    whatsapp_receipt_status: str | None = None
 
 
 class AccountPaymentResponse(BaseModel):
@@ -134,6 +135,7 @@ class AccountPaymentResponse(BaseModel):
     notes: str
     received_at: datetime
     receipts: list[PaymentEvidenceResponse] = Field(default_factory=list)
+    whatsapp_receipt_status: str | None = None
 
 
 class AccountPaymentHistoryResponse(AccountPaymentResponse):

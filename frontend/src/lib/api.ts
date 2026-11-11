@@ -322,8 +322,8 @@ export const api = {
     return request<TransactionHistoryEntry[]>(`/transaction-history?${params.toString()}`);
   },
 
-  purchases(): Promise<Purchase[]> {
-    return request<Purchase[]>("/purchases");
+  purchases(limit = 100): Promise<Purchase[]> {
+    return request<Purchase[]>(`/purchases?limit=${limit}`);
   },
 
   createPurchase(purchase: {

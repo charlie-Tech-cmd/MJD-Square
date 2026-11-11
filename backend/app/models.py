@@ -199,6 +199,10 @@ class Customer(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     phone: Mapped[str | None] = mapped_column(String(40))
     whatsapp: Mapped[str | None] = mapped_column(String(40))
+    whatsapp_receipt_opted_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    whatsapp_receipt_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     email: Mapped[str | None] = mapped_column(String(320))
     address: Mapped[str | None] = mapped_column(String(500))
     customer_type: Mapped[str] = mapped_column(String(20), nullable=False, default="retail")
@@ -240,6 +244,11 @@ class Supplier(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
     contact_person: Mapped[str | None] = mapped_column(String(160))
     phone: Mapped[str | None] = mapped_column(String(40))
+    whatsapp: Mapped[str | None] = mapped_column(String(40))
+    whatsapp_receipt_opted_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    whatsapp_receipt_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     email: Mapped[str | None] = mapped_column(String(320))
     address: Mapped[str | None] = mapped_column(String(500))
     payment_terms_days: Mapped[int | None] = mapped_column(Integer)
@@ -576,6 +585,13 @@ class Payment(Base):
     receipts: Mapped[list["PaymentEvidence"]] = relationship(
         back_populates="payment", order_by="PaymentEvidence.uploaded_at", lazy="selectin"
     )
+    whatsapp_receipt: Mapped["WhatsAppReceipt | None"] = relationship(
+        back_populates="payment", uselist=False, lazy="selectin"
+    )
+
+    @property
+    def whatsapp_receipt_status(self) -> str | None:
+        return self.whatsapp_receipt.status if self.whatsapp_receipt else None
 
 
 class AccountPayment(Base):
@@ -608,6 +624,73 @@ class AccountPayment(Base):
         back_populates="account_payment",
         order_by="PaymentEvidence.uploaded_at",
         lazy="selectin",
+    )
+    whatsapp_receipt: Mapped["WhatsAppReceipt | None"] = relationship(
+        back_populates="account_payment", uselist=False, lazy="selectin"
+    )
+
+    @property
+    def whatsapp_receipt_status(self) -> str | None:
+        return self.whatsapp_receipt.status if self.whatsapp_receipt else None
+
+
+class WhatsAppReceipt(Base):
+    __tablename__ = "whatsapp_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "(payment_id IS NOT NULL AND account_payment_id IS NULL) OR "
+            "(payment_id IS NULL AND account_payment_id IS NOT NULL)",
+            name="ck_whatsapp_receipt_single_payment",
+        ),
+        CheckConstraint(
+            "status IN ('not_opted_in', 'no_number', 'not_configured', 'pending', "
+            "'invalid_number', 'accepted', 'sent', 'delivered', 'read', 'failed')",
+            name="ck_whatsapp_receipt_status_valid",
+        ),
+        CheckConstraint("amount > 0", name="ck_whatsapp_receipt_amount_positive"),
+        CheckConstraint("balance_due >= 0", name="ck_whatsapp_receipt_balance_nonnegative"),
+        CheckConstraint(
+            "recipient_kind IN ('customer', 'supplier')",
+            name="ck_whatsapp_receipt_recipient_kind_valid",
+        ),
+        CheckConstraint(
+            "payment_direction IN ('received', 'paid')",
+            name="ck_whatsapp_receipt_direction_valid",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    payment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("payments.id", ondelete="RESTRICT"), unique=True
+    )
+    account_payment_id: Mapped[str | None] = mapped_column(
+        ForeignKey("account_payments.id", ondelete="RESTRICT"), unique=True
+    )
+    recipient_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    recipient_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="customer")
+    payment_direction: Mapped[str] = mapped_column(String(16), nullable=False, default="received")
+    phone: Mapped[str] = mapped_column(String(40), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    method: Mapped[str] = mapped_column(String(40), nullable=False)
+    reference: Mapped[str | None] = mapped_column(String(100))
+    transaction_reference: Mapped[str] = mapped_column(String(100), nullable=False)
+    balance_due: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(200), unique=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(300))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    payment: Mapped[Payment | None] = relationship(back_populates="whatsapp_receipt")
+    account_payment: Mapped[AccountPayment | None] = relationship(
+        back_populates="whatsapp_receipt"
     )
 
 

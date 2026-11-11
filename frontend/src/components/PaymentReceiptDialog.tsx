@@ -7,6 +7,7 @@ export interface PaymentReceiptDetails {
   invoiceNumber: string;
   customerName: string;
   customerPhone: string | null;
+  whatsappReceiptStatus: string | null;
   amount: string;
   method: string;
   reference: string | null;
@@ -45,6 +46,22 @@ function whatsappUrl(receipt: PaymentReceiptDetails, businessName: string): stri
     "This receipt documents a manual record and is not independent confirmation from a bank or payment provider.",
   ].join("\n");
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+}
+
+function whatsappStatusText(status: string): string {
+  const messages: Record<string, string> = {
+    not_opted_in: "Not sent: customer has not opted in to WhatsApp receipts.",
+    no_number: "Not sent: no WhatsApp number is recorded.",
+    invalid_number: "Not sent: the recorded WhatsApp number is invalid.",
+    not_configured: "Not sent: WhatsApp delivery is not configured.",
+    pending: "WhatsApp receipt is pending.",
+    accepted: "WhatsApp accepted the receipt; delivery is not yet confirmed.",
+    sent: "WhatsApp sent the receipt; delivery is not yet confirmed.",
+    delivered: "WhatsApp delivered the receipt.",
+    read: "WhatsApp reports that the customer read the receipt.",
+    failed: "WhatsApp receipt delivery failed. The payment remains recorded.",
+  };
+  return messages[status] ?? "WhatsApp receipt status is unavailable.";
 }
 
 export function PaymentReceiptDialog({
@@ -138,6 +155,11 @@ export function PaymentReceiptDialog({
         </article>
 
         {shareError && <p className="form-alert" role="alert">{shareError}</p>}
+        {receipt.whatsappReceiptStatus && (
+          <p aria-live="polite" className="payment-receipt-verification" role="status">
+            {whatsappStatusText(receipt.whatsappReceiptStatus)}
+          </p>
+        )}
         <div className="receipt-dialog-actions">
           <button className="button button-secondary" onClick={printReceipt} type="button">
             <Printer size={15} /> Print / Save PDF
@@ -156,7 +178,7 @@ export function PaymentReceiptDialog({
           )}
         </div>
         <p className="receipt-dialog-note">
-          WhatsApp opens with a prepared message only. Review and send it yourself; attach the downloaded PDF separately if required.
+          WhatsApp delivery status does not independently verify settlement. Use the prepared-message option if automatic delivery was unavailable.
         </p>
       </section>
     </div>

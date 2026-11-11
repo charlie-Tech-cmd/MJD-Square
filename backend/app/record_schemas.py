@@ -21,6 +21,7 @@ class CustomerFields(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
     whatsapp: str | None = Field(default=None, max_length=40)
+    whatsapp_receipt_opted_in: bool = False
     email: EmailStr | None = None
     address: str | None = Field(default=None, max_length=500)
     customer_type: Literal["retail", "wholesale", "both"] = "retail"
@@ -37,6 +38,8 @@ class CustomerFields(BaseModel):
             value = getattr(self, field)
             if value is not None:
                 setattr(self, field, value.strip() or None)
+        if self.whatsapp_receipt_opted_in and not self.whatsapp:
+            raise ValueError("A WhatsApp number is required for receipt opt-in.")
         self.notes = self.notes.strip()
         return self
 
@@ -69,6 +72,7 @@ class CustomerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
     whatsapp: str | None = Field(default=None, max_length=40)
+    whatsapp_receipt_opted_in: bool | None = None
     email: EmailStr | None = None
     address: str | None = Field(default=None, max_length=500)
     customer_type: Literal["retail", "wholesale", "both"] | None = None
@@ -120,6 +124,8 @@ class CustomerResponse(BaseModel):
     name: str
     phone: str | None
     whatsapp: str | None
+    whatsapp_receipt_opted_in: bool
+    whatsapp_receipt_consent_at: datetime | None
     email: EmailStr | None
     address: str | None
     customer_type: str
@@ -134,6 +140,8 @@ class SupplierFields(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     contact_person: str | None = Field(default=None, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
+    whatsapp: str | None = Field(default=None, max_length=40)
+    whatsapp_receipt_opted_in: bool = False
     email: EmailStr | None = None
     address: str | None = Field(default=None, max_length=500)
     payment_terms_days: int | None = Field(default=None, ge=0, le=3650)
@@ -146,10 +154,12 @@ class SupplierFields(BaseModel):
             raise ValueError("Supplier name cannot be blank.")
         if self.email is not None:
             self.email = self.email.strip() or None
-        for field in ("contact_person", "phone", "address"):
+        for field in ("contact_person", "phone", "whatsapp", "address"):
             value = getattr(self, field)
             if value is not None:
                 setattr(self, field, value.strip() or None)
+        if self.whatsapp_receipt_opted_in and not self.whatsapp:
+            raise ValueError("A WhatsApp number is required for receipt opt-in.")
         self.notes = self.notes.strip()
         return self
 
@@ -164,6 +174,8 @@ class SupplierUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     contact_person: str | None = Field(default=None, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
+    whatsapp: str | None = Field(default=None, max_length=40)
+    whatsapp_receipt_opted_in: bool | None = None
     email: EmailStr | None = None
     address: str | None = Field(default=None, max_length=500)
     payment_terms_days: int | None = Field(default=None, ge=0, le=3650)
@@ -178,7 +190,7 @@ class SupplierUpdate(BaseModel):
                 raise ValueError("Supplier name cannot be blank.")
         if self.email is not None:
             self.email = self.email.strip() or None
-        for field in ("contact_person", "phone", "address"):
+        for field in ("contact_person", "phone", "whatsapp", "address"):
             value = getattr(self, field)
             if value is not None:
                 setattr(self, field, value.strip() or None)
@@ -192,6 +204,9 @@ class SupplierResponse(BaseModel):
     name: str
     contact_person: str | None
     phone: str | None
+    whatsapp: str | None
+    whatsapp_receipt_opted_in: bool
+    whatsapp_receipt_consent_at: datetime | None
     email: EmailStr | None
     address: str | None
     payment_terms_days: int | None

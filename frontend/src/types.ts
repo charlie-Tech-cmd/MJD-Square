@@ -46,6 +46,8 @@ export interface Customer {
   name: string;
   phone: string | null;
   whatsapp: string | null;
+  whatsapp_receipt_opted_in: boolean;
+  whatsapp_receipt_consent_at: string | null;
   email: string | null;
   address: string | null;
   customer_type: "retail" | "wholesale" | "both";
@@ -60,6 +62,7 @@ export interface CustomerCreateInput {
   name: string;
   phone: string | null;
   whatsapp: string | null;
+  whatsapp_receipt_opted_in: boolean;
   email: string | null;
   address: string | null;
   customer_type: Customer["customer_type"];
@@ -72,7 +75,7 @@ export interface CustomerCreateInput {
 export type CustomerUpdateInput = Partial<
   Pick<
     CustomerCreateInput,
-    "name" | "phone" | "whatsapp" | "email" | "address" | "customer_type" | "notes"
+    "name" | "phone" | "whatsapp" | "whatsapp_receipt_opted_in" | "email" | "address" | "customer_type" | "notes"
   >
 > & { is_active?: boolean };
 
@@ -81,6 +84,9 @@ export interface Supplier {
   name: string;
   contact_person: string | null;
   phone: string | null;
+  whatsapp: string | null;
+  whatsapp_receipt_opted_in: boolean;
+  whatsapp_receipt_consent_at: string | null;
   email: string | null;
   address: string | null;
   payment_terms_days: number | null;
@@ -94,6 +100,8 @@ export interface Supplier {
 export interface SupplierCreateInput {
   name: string;
   phone: string | null;
+  whatsapp: string | null;
+  whatsapp_receipt_opted_in: boolean;
   email: string | null;
   address: string | null;
   payment_terms_days: number | null;
@@ -106,7 +114,7 @@ export interface SupplierCreateInput {
 export type SupplierUpdateInput = Partial<
   Pick<
     SupplierCreateInput,
-    "name" | "phone" | "email" | "address" | "payment_terms_days" | "notes"
+    "name" | "phone" | "whatsapp" | "whatsapp_receipt_opted_in" | "email" | "address" | "payment_terms_days" | "notes"
   >
 > & { is_active?: boolean };
 
@@ -207,6 +215,7 @@ export interface TransactionPayment {
   notes: string;
   received_at: string;
   receipts: PaymentEvidence[];
+  whatsapp_receipt_status: string | null;
 }
 
 export interface PaymentEvidence {

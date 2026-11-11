@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -28,6 +28,8 @@ def customer_response(
         name=customer.name,
         phone=customer.phone,
         whatsapp=customer.whatsapp,
+        whatsapp_receipt_opted_in=customer.whatsapp_receipt_opted_in,
+        whatsapp_receipt_consent_at=customer.whatsapp_receipt_consent_at,
         email=customer.email,
         address=customer.address,
         customer_type=customer.customer_type,
@@ -122,6 +124,10 @@ def create_customer(
         name=payload.name,
         phone=payload.phone,
         whatsapp=payload.whatsapp,
+        whatsapp_receipt_opted_in=payload.whatsapp_receipt_opted_in,
+        whatsapp_receipt_consent_at=(
+            datetime.now(UTC) if payload.whatsapp_receipt_opted_in else None
+        ),
         email=str(payload.email) if payload.email else None,
         address=payload.address,
         customer_type=payload.customer_type,
@@ -148,7 +154,10 @@ def create_customer(
                 action="customer.create",
                 entity_type="customer",
                 entity_id=customer.id,
-                details={"customer_type": customer.customer_type},
+                details={
+                    "customer_type": customer.customer_type,
+                    "whatsapp_receipt_opted_in": customer.whatsapp_receipt_opted_in,
+                },
             )
         )
         db.commit()
@@ -174,13 +183,32 @@ def update_customer(
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found.")
     changes = payload.model_dump(exclude_unset=True)
-    for required in ("name", "customer_type"):
+    for required in ("name", "customer_type", "whatsapp_receipt_opted_in"):
         if required in changes and changes[required] is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"{required} cannot be null.",
             )
+    if "whatsapp" in changes and changes["whatsapp"] != customer.whatsapp:
+        if "whatsapp_receipt_opted_in" not in changes:
+            changes["whatsapp_receipt_opted_in"] = False
+    if changes.get("whatsapp_receipt_opted_in"):
+        whatsapp_number = changes.get("whatsapp", customer.whatsapp)
+        if not whatsapp_number:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A WhatsApp number is required for receipt opt-in.",
+            )
+        if not customer.whatsapp_receipt_opted_in or (
+            "whatsapp" in changes and changes["whatsapp"] != customer.whatsapp
+        ):
+            customer.whatsapp_receipt_consent_at = datetime.now(UTC)
+    elif changes.get("whatsapp_receipt_opted_in") is False:
+        customer.whatsapp_receipt_consent_at = None
     for field, value in changes.items():
+        if field == "whatsapp_receipt_opted_in":
+            customer.whatsapp_receipt_opted_in = value
+            continue
         if field == "email":
             value = str(value) if value else None
         setattr(customer, field, value)

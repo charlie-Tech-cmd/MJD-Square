@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.router import api_router
+from app.api.whatsapp import router as whatsapp_webhook_router
 from app.config import settings
 from app.db import get_db
 
@@ -20,6 +21,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-CSRF-Token"],
 )
 app.include_router(api_router)
+app.include_router(whatsapp_webhook_router)
 
 
 @app.middleware("http")

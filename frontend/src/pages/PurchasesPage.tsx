@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { formatNaira, formatQuantity } from "../lib/format";
+import { calculatePurchaseLineTotal, sumMoney } from "../lib/purchase";
 import { hasPermission } from "../lib/permissions";
 import { PaymentEvidenceFiles } from "../components/PaymentEvidenceFiles";
 import type { Purchase, User } from "../types";
@@ -48,7 +49,7 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
-  const purchasesQuery = useQuery({ queryKey: ["purchases"], queryFn: api.purchases });
+  const purchasesQuery = useQuery({ queryKey: ["purchases"], queryFn: () => api.purchases() });
   const productsQuery = useQuery({ queryKey: ["products"], queryFn: api.products });
   const suppliersQuery = useQuery({
     queryKey: ["suppliers"],
@@ -74,6 +75,12 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
     },
   });
   const lines = useFieldArray({ control: form.control, name: "lines" });
+  const watchedLines = form.watch("lines");
+  const lineTotals = watchedLines.map((line) => (
+    line.product_id ? calculatePurchaseLineTotal(line.quantity, line.unit_cost) : null
+  ));
+  const completeLineTotals = lineTotals.filter((lineTotal): lineTotal is string => lineTotal !== null);
+  const goodsTotal = completeLineTotals.length === lineTotals.length ? sumMoney(completeLineTotals) : null;
   const createMutation = useMutation({
     mutationFn: api.createPurchase,
     onSuccess: async (purchase) => {
@@ -165,7 +172,7 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
         <form className="settings-card transaction-form" onSubmit={submit}>
           <div className="settings-card-heading">
             <span className="settings-heading-icon"><PackagePlus size={18} /></span>
-            <div><h2>Record a purchase</h2><p>Purchase quantities are added to stock atomically with the supplier invoice.</p></div>
+            <div><h2>Record a purchase</h2><p>Line totals are calculated from quantity and unit cost; stock and invoice records are saved together.</p></div>
           </div>
           <div className="settings-fields">
             <div className="settings-field-row">
@@ -202,9 +209,17 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
                   <label className="field"><span>Quantity received</span><input inputMode="decimal" {...form.register(`lines.${index}.quantity`)} /></label>
                   <label className="field"><span>Unit cost (NGN)</span><input inputMode="decimal" {...form.register(`lines.${index}.unit_cost`)} /></label>
                   {lines.fields.length > 1 && <button className="button button-secondary" onClick={() => lines.remove(index)} type="button">Remove</button>}
+                  <div className="purchase-line-total">
+                    <span>Line total</span>
+                    <strong>{lineTotals[index] ? formatNaira(lineTotals[index]) : "—"}</strong>
+                  </div>
                 </div>
               ))}
               {form.formState.errors.lines && <small className="field-error">{form.formState.errors.lines.message}</small>}
+              <div aria-live="polite" className="purchase-goods-total">
+                <span>Total goods</span>
+                <strong>{goodsTotal === null ? "Complete each product, quantity, and unit cost" : formatNaira(goodsTotal)}</strong>
+              </div>
             </div>
             {canPay && (
               <div className="settings-field-row">
@@ -259,6 +274,11 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
                     <small className="transaction-payment">
                       {formatNaira(payment.amount)} paid · {payment.method}{payment.reference ? ` · ${payment.reference}` : ""}
                     </small>
+                    {payment.whatsapp_receipt_status && (
+                      <small className="transaction-payment">
+                        WhatsApp payment confirmation: {payment.whatsapp_receipt_status}
+                      </small>
+                    )}
                     <PaymentEvidenceFiles
                       canDownload={canReadPayments}
                       canUpload={canPay}

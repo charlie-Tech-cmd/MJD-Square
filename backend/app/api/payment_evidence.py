@@ -162,6 +162,10 @@ def persist_receipt(
         sha256=hashlib.sha256(content).hexdigest(),
         uploaded_by_id=actor.id,
     )
+    if payment is not None:
+        payment.receipts.append(receipt)
+    elif account_payment is not None:
+        account_payment.receipts.append(receipt)
     db.add(receipt)
     db.add(
         AuditLog(

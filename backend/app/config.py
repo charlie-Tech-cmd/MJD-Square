@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -69,6 +70,13 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_access_key_id: str | None = None
     s3_secret_access_key: str | None = None
+    whatsapp_access_token: str | None = None
+    whatsapp_phone_number_id: str | None = None
+    whatsapp_api_version: str | None = None
+    whatsapp_receipt_template: str | None = None
+    whatsapp_receipt_template_language: str = "en"
+    whatsapp_app_secret: str | None = None
+    whatsapp_webhook_verify_token: str | None = None
 
     @field_validator("app_env")
     @classmethod
@@ -84,6 +92,8 @@ class Settings(BaseSettings):
                 raise ValueError("Production must use PostgreSQL.")
             if not self.smtp_host or not self.mail_from or not self.smtp_use_starttls:
                 raise ValueError("Production requires SMTP with STARTTLS and a sender address.")
+            if not self.smtp_username or not self.smtp_password:
+                raise ValueError("Production requires authenticated SMTP credentials.")
             if not self.frontend_url.startswith("https://"):
                 raise ValueError("Production FRONTEND_URL must use HTTPS.")
             if not all(
@@ -151,6 +161,32 @@ class Settings(BaseSettings):
         if bool(s3_credentials[0]) != bool(s3_credentials[1]):
             raise ValueError(
                 "S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY must be configured together."
+            )
+        whatsapp_sender_settings = (
+            self.whatsapp_access_token,
+            self.whatsapp_phone_number_id,
+            self.whatsapp_api_version,
+            self.whatsapp_receipt_template,
+        )
+        if any(whatsapp_sender_settings) and not all(whatsapp_sender_settings):
+            raise ValueError(
+                "WhatsApp sender requires access token, phone number ID, API version, "
+                "and receipt template."
+            )
+        if self.whatsapp_api_version and not re.fullmatch(r"v\d+\.\d+", self.whatsapp_api_version):
+            raise ValueError("WHATSAPP_API_VERSION must look like vNN.N.")
+        if self.whatsapp_phone_number_id and not self.whatsapp_phone_number_id.isdigit():
+            raise ValueError("WHATSAPP_PHONE_NUMBER_ID must contain only digits.")
+        if self.whatsapp_receipt_template and not re.fullmatch(
+            r"[a-z0-9_]+", self.whatsapp_receipt_template
+        ):
+            raise ValueError("WHATSAPP_RECEIPT_TEMPLATE must be a lowercase template name.")
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{2,20}", self.whatsapp_receipt_template_language):
+            raise ValueError("WHATSAPP_RECEIPT_TEMPLATE_LANGUAGE is invalid.")
+        webhook_settings = (self.whatsapp_app_secret, self.whatsapp_webhook_verify_token)
+        if bool(webhook_settings[0]) != bool(webhook_settings[1]):
+            raise ValueError(
+                "WhatsApp app secret and webhook verify token must be configured together."
             )
         if not 1 <= self.smtp_port <= 65535:
             raise ValueError("SMTP_PORT must be between 1 and 65535.")

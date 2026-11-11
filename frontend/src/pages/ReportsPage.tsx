@@ -38,6 +38,22 @@ function downloadCsv(filename: string, rows: string[][]) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
+function whatsappStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    not_opted_in: "Not sent: customer has not opted in.",
+    no_number: "Not sent: no WhatsApp number is recorded.",
+    invalid_number: "Not sent: WhatsApp number is invalid.",
+    not_configured: "Not sent: WhatsApp delivery is not configured.",
+    pending: "WhatsApp receipt pending.",
+    accepted: "WhatsApp accepted the receipt; delivery is not confirmed.",
+    sent: "WhatsApp sent the receipt; delivery is not confirmed.",
+    delivered: "WhatsApp delivered the receipt.",
+    read: "WhatsApp reports the receipt was read.",
+    failed: "WhatsApp receipt delivery failed; payment remains recorded.",
+  };
+  return labels[status] ?? "WhatsApp receipt status unavailable.";
+}
+
 export function ReportsPage({ user }: { user: User }) {
   const queryClient = useQueryClient();
   const [range, setRange] = useState<DateRange>({
@@ -70,6 +86,7 @@ export function ReportsPage({ user }: { user: User }) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
   const paymentMutation = useMutation({
     mutationFn: ({ target, amount, method, reference }: {
       target: NonNullable<typeof paymentTarget>;
@@ -79,7 +96,12 @@ export function ReportsPage({ user }: { user: User }) {
     }) => target.type === "customer"
       ? api.recordCustomerAccountPayment(target.id, { amount, method, reference, notes: "" })
       : api.recordSupplierAccountPayment(target.id, { amount, method, reference, notes: "" }),
-    onSuccess: async () => {
+    onSuccess: async (payment) => {
+      setPaymentNotice(
+        payment.whatsapp_receipt_status
+          ? whatsappStatusLabel(payment.whatsapp_receipt_status)
+          : "",
+      );
       setPaymentTarget(null);
       setPaymentAmount("");
       setPaymentReference("");
@@ -117,6 +139,7 @@ export function ReportsPage({ user }: { user: User }) {
       {outstandingQuery.isError && <p className="form-alert" role="alert">{outstandingQuery.error instanceof ApiError ? outstandingQuery.error.message : "Unable to load outstanding balances."}</p>}
       {accountPaymentsQuery.isError && <p className="form-alert" role="alert">{accountPaymentsQuery.error instanceof ApiError ? accountPaymentsQuery.error.message : "Unable to load account payment history."}</p>}
       {settingsQuery.isError && <p className="form-alert" role="alert">{settingsQuery.error instanceof ApiError ? settingsQuery.error.message : "Unable to load payment methods."}</p>}
+      {paymentNotice && <p aria-live="polite" className="settings-hint" role="status">{paymentNotice}</p>}
       {summaryQuery.isPending || outstandingQuery.isPending || settingsQuery.isPending ? (
         <div className="loading-panel"><LoaderCircle className="spin" size={20} /> Loading reports…</div>
       ) : summary && outstandingQuery.data && (
@@ -215,6 +238,9 @@ export function ReportsPage({ user }: { user: User }) {
                       <strong>{payment.account_name}</strong>
                       <small>{payment.account_type === "customer" ? "Customer payment received" : "Supplier payment made"} · {payment.method} · {new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeZone: "Africa/Lagos" }).format(new Date(payment.received_at))}</small>
                       {payment.reference && <small>Reference: {payment.reference}</small>}
+                      {payment.whatsapp_receipt_status && (
+                        <small>{whatsappStatusLabel(payment.whatsapp_receipt_status)}</small>
+                      )}
                     </div>
                     <strong>{formatNaira(payment.amount)}</strong>
                     <PaymentEvidenceFiles

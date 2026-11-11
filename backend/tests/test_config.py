@@ -13,6 +13,8 @@ def production_settings(cors_origins: str) -> Settings:
         cors_origins=cors_origins,
         frontend_url="https://app.example.com",
         smtp_host="smtp.example.com",
+        smtp_username="smtp-user",
+        smtp_password="smtp-password",
         smtp_use_starttls=True,
         mail_from="noreply@example.com",
         s3_region="auto",
@@ -65,8 +67,29 @@ def test_production_requires_receipt_storage():
             cors_origins="https://app.example.com",
             frontend_url="https://app.example.com",
             smtp_host="smtp.example.com",
+            smtp_username="smtp-user",
+            smtp_password="smtp-password",
             smtp_use_starttls=True,
             mail_from="noreply@example.com",
+        )
+
+
+def test_production_requires_authenticated_smtp():
+    with pytest.raises(ValidationError, match="authenticated SMTP credentials"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            database_url="postgresql://localhost/mjd_square",
+            cookie_secure=True,
+            cors_origins="https://app.example.com",
+            frontend_url="https://app.example.com",
+            smtp_host="smtp.example.com",
+            smtp_use_starttls=True,
+            mail_from="noreply@example.com",
+            s3_region="auto",
+            s3_bucket="payment-evidence",
+            s3_access_key_id="test-access-key",
+            s3_secret_access_key="test-secret-key",
         )
 
 
@@ -80,6 +103,8 @@ def test_production_rejects_insecure_receipt_storage_endpoint():
             cors_origins="https://app.example.com",
             frontend_url="https://app.example.com",
             smtp_host="smtp.example.com",
+            smtp_username="smtp-user",
+            smtp_password="smtp-password",
             smtp_use_starttls=True,
             mail_from="noreply@example.com",
             s3_region="auto",
@@ -98,3 +123,13 @@ def test_development_preserves_localhost_http_origin():
     )
 
     assert configured.allowed_origins == ["http://localhost:5173"]
+
+
+def test_whatsapp_sender_settings_must_be_complete():
+    with pytest.raises(ValidationError, match="WhatsApp sender requires"):
+        Settings(_env_file=None, whatsapp_access_token="token")
+
+
+def test_whatsapp_webhook_secrets_must_be_configured_together():
+    with pytest.raises(ValidationError, match="must be configured together"):
+        Settings(_env_file=None, whatsapp_app_secret="secret")

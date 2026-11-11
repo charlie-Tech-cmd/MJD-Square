@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -28,6 +28,9 @@ def supplier_response(
         name=supplier.name,
         contact_person=supplier.contact_person,
         phone=supplier.phone,
+        whatsapp=supplier.whatsapp,
+        whatsapp_receipt_opted_in=supplier.whatsapp_receipt_opted_in,
+        whatsapp_receipt_consent_at=supplier.whatsapp_receipt_consent_at,
         email=supplier.email,
         address=supplier.address,
         payment_terms_days=supplier.payment_terms_days,
@@ -122,6 +125,11 @@ def create_supplier(
         name=payload.name,
         contact_person=payload.contact_person,
         phone=payload.phone,
+        whatsapp=payload.whatsapp,
+        whatsapp_receipt_opted_in=payload.whatsapp_receipt_opted_in,
+        whatsapp_receipt_consent_at=(
+            datetime.now(UTC) if payload.whatsapp_receipt_opted_in else None
+        ),
         email=str(payload.email) if payload.email else None,
         address=payload.address,
         payment_terms_days=payload.payment_terms_days,
@@ -148,7 +156,9 @@ def create_supplier(
                 action="supplier.create",
                 entity_type="supplier",
                 entity_id=supplier.id,
-                details={},
+                details={
+                    "whatsapp_receipt_opted_in": supplier.whatsapp_receipt_opted_in,
+                },
             )
         )
         db.commit()
@@ -179,7 +189,32 @@ def update_supplier(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="name cannot be null.",
         )
+    for required in ("whatsapp_receipt_opted_in",):
+        if required in changes and changes[required] is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"{required} cannot be null.",
+            )
+    if "whatsapp" in changes and changes["whatsapp"] != supplier.whatsapp:
+        if "whatsapp_receipt_opted_in" not in changes:
+            changes["whatsapp_receipt_opted_in"] = False
+    if changes.get("whatsapp_receipt_opted_in"):
+        whatsapp_number = changes.get("whatsapp", supplier.whatsapp)
+        if not whatsapp_number:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A WhatsApp number is required for receipt opt-in.",
+            )
+        if not supplier.whatsapp_receipt_opted_in or (
+            "whatsapp" in changes and changes["whatsapp"] != supplier.whatsapp
+        ):
+            supplier.whatsapp_receipt_consent_at = datetime.now(UTC)
+    elif changes.get("whatsapp_receipt_opted_in") is False:
+        supplier.whatsapp_receipt_consent_at = None
     for field, value in changes.items():
+        if field == "whatsapp_receipt_opted_in":
+            supplier.whatsapp_receipt_opted_in = value
+            continue
         if field == "email":
             value = str(value) if value else None
         setattr(supplier, field, value)

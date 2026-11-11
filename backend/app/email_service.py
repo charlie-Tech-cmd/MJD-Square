@@ -7,10 +7,17 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+class EmailDeliveryError(Exception):
+    pass
+
+
 def send_password_reset_email(recipient: str, reset_url: str) -> None:
     if not settings.smtp_host or not settings.mail_from:
-        logger.error("Password reset email was not sent: SMTP is not configured.")
-        return
+        raise EmailDeliveryError("Password reset email was not sent: SMTP is not configured.")
+    if not settings.smtp_username or not settings.smtp_password:
+        raise EmailDeliveryError(
+            "Password reset email was not sent: SMTP authentication is missing."
+        )
 
     message = EmailMessage()
     message["Subject"] = "Reset your MJD Square password"
@@ -31,5 +38,6 @@ def send_password_reset_email(recipient: str, reset_url: str) -> None:
             if settings.smtp_username and settings.smtp_password:
                 smtp.login(settings.smtp_username, settings.smtp_password)
             smtp.send_message(message)
-    except (OSError, smtplib.SMTPException):
+    except (OSError, smtplib.SMTPException) as exc:
         logger.exception("Password reset email delivery failed.")
+        raise EmailDeliveryError("Password reset email delivery failed.") from exc

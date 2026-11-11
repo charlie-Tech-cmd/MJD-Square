@@ -104,6 +104,7 @@ export function SalesPage({ user }: SalesPageProps) {
       invoiceNumber: sale.invoice_number,
       customerName: sale.customer_name ?? "Walk-in customer",
       customerPhone: customer?.whatsapp ?? customer?.phone ?? null,
+      whatsappReceiptStatus: payment.whatsapp_receipt_status,
       amount: payment.amount,
       method: payment.method,
       reference: payment.reference,
