@@ -4,7 +4,7 @@ Business management for MJD Square, a Nigerian retail and wholesale business. Th
 
 ## Current implementation status
 
-The repository contains a working local application and the core transaction slice of an operational MVP. It is not yet a complete implementation of the master blueprint and is not production-ready.
+The repository contains a working local application and the core transaction slice of an operational MVP. It is not yet a complete implementation of the master blueprint or production-validated. Payment-gateway integration is planned for a later phase and is explicitly outside the MVP.
 
 - React, TypeScript, Vite, Tailwind CSS, React Router, TanStack Query, React Hook Form, and Zod.
 - FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL, and OpenAPI documentation.
@@ -86,6 +86,23 @@ docker compose exec backend python -m app.cli create-admin --email owner@example
 ```
 
 Open `http://localhost:5173`. Compose's database credentials are local-development defaults only. Replace them and use managed secrets, TLS, secure cookies, and restricted network access in any deployed environment. Database data is stored in the `postgres-data` volume.
+
+## Vercel hosting
+
+The Vercel configuration uses two projects connected to this repository so the static frontend and Python API can each use their native Vercel runtime:
+
+1. Create an API project named `mjd-square-api` with **Root Directory** `backend`. Vercel detects the FastAPI entrypoint from `backend/pyproject.toml`.
+2. Assign `mjd-square-api.vercel.app` as the API project's stable domain. The frontend rewrite in `frontend/vercel.json` targets this domain; if it is unavailable, assign another stable API domain and update both rewrite destinations to match.
+3. Create a frontend project with **Root Directory** `frontend`. Vercel detects Vite, builds with `npm run build`, and serves the SPA. Its rewrites proxy `/api/*` and `/health/*` to the API while keeping browser requests same-origin for session and CSRF cookies.
+4. Configure the API project's Production environment variables:
+   - `APP_ENV=production`
+   - `DATABASE_URL` with a managed PostgreSQL URL (use the provider's pooled connection string where available; do not use SQLite)
+   - `COOKIE_SECURE=true`
+   - `CORS_ORIGINS` and `FRONTEND_URL` set to the frontend's exact HTTPS production origin
+   - `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_USE_STARTTLS=true`, and `MAIL_FROM` for password recovery email
+5. Before serving traffic, apply migrations to the managed database with `alembic upgrade head` from `backend/`, using a trusted environment that has the production database URL and never committing credentials. Create the initial owner with `python -m app.cli create-admin` from the same trusted environment.
+
+The database, SMTP account, and Vercel environment variables must be provisioned by the operator; deployments do not create or migrate a production database automatically. Configure a separate staging database and matching frontend/API projects before enabling Preview deployments, otherwise previews can use the production API rewrite. Verify `/health/ready`, sign-in, password recovery, and a test transaction after deployment. A Vercel deployment scaffold is not a substitute for backup/restore drills, financial control acceptance, or production monitoring.
 
 ## Database and recovery
 

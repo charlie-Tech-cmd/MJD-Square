@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://mjd-square-api.vercel.app/api/:path*"
+    },
+    {
+      "source": "/health/:path*",
+      "destination": "https://mjd-square-api.vercel.app/health/:path*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}

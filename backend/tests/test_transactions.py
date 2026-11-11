@@ -184,8 +184,18 @@ def test_purchase_increases_stock_tracks_supplier_balance_and_records_expense(
     summary = client.get("/api/v1/reports/summary?from=2026-11-09&to=2026-11-09")
     assert summary.status_code == 200
     assert summary.json()["purchases_total"] == "625.00"
-    assert summary.json()["payments_made"] == "200.00"
+    assert summary.json()["payments_made"] == "0.00"
     assert summary.json()["expenses_total"] == "5000.00"
+    purchase_payment = db_session.scalar(
+        select(Payment).where(Payment.purchase_id == purchase["id"])
+    )
+    assert purchase_payment is not None
+    payment_date = purchase_payment.received_at.date()
+    payment_summary = client.get(
+        f"/api/v1/reports/summary?from={payment_date}&to={payment_date}"
+    )
+    assert payment_summary.status_code == 200
+    assert payment_summary.json()["payments_made"] == "200.00"
     outstanding = client.get("/api/v1/reports/outstanding")
     assert outstanding.status_code == 200
     supplier_balance = outstanding.json()["supplier_balances"][0]
