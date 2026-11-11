@@ -288,6 +288,19 @@ button { cursor: pointer; }
 .record-row { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f0f2f5; }
 .record-row:last-child { border-bottom: 0; }
 .supplier-record-row { flex-wrap: wrap; }
+.supplier-purchase-filters { margin: 0 0 12px; padding: 12px; border: 1px solid #e8edf1; border-radius: 7px; background: #fbfcfd; }
+.supplier-purchase-filters-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.supplier-purchase-filters-heading > div { display: flex; flex-direction: column; gap: 3px; }
+.supplier-purchase-filters-heading strong { color: #35465c; font-size: 10px; }
+.supplier-purchase-filters-heading small { color: #8290a0; font-size: 9px; }
+.supplier-purchase-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.supplier-purchase-filter-grid .field { gap: 5px; }
+.supplier-purchase-filter-grid .field > span { font-size: 9px; }
+.supplier-purchase-filter-grid .field input, .supplier-purchase-filter-grid .field select { height: 36px; font-size: 11px; }
+.supplier-purchase-filters > .field-error { display: block; margin-top: 8px; }
+.supplier-purchase-filter-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 11px; padding-top: 9px; border-top: 1px solid #e8edf1; color: #718094; font-size: 9px; }
+.supplier-purchase-filter-summary strong { color: #35465c; }
+.supplier-purchase-filter-summary .button { min-height: 29px; margin-left: auto; padding: 0 8px; font-size: 9px; }
 .supplier-purchase-history { flex: 1 0 100%; min-width: 0; padding: 10px 0 0 42px; border-top: 1px solid #f0f2f5; }
 .supplier-purchase-heading, .supplier-purchase-invoice { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .supplier-purchase-heading strong, .supplier-purchase-invoice strong { color: #506177; font-size: 9px; }
@@ -599,6 +612,8 @@ button { cursor: pointer; }
   .record-row { align-items: flex-start; flex-wrap: wrap; }
   .record-amount { margin-left: 38px; }
   .record-row .record-action { margin-left: auto; }
+  .supplier-purchase-filter-grid { grid-template-columns: 1fr; }
+  .supplier-purchase-filter-summary .button { margin-left: 0; }
   .supplier-goods-entry { padding-left: 0; }
   .supplier-goods-form { grid-template-columns: 1fr; }
   .supplier-goods-total { grid-column: auto; }

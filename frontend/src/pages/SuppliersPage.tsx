@@ -1,12 +1,19 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, LoaderCircle, Plus, Truck } from "lucide-react";
+import { Building2, Filter, LoaderCircle, Plus, RotateCcw, Truck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { formatNaira, formatQuantity } from "../lib/format";
-import { calculatePurchaseLineTotal, sumMoney } from "../lib/purchase";
+import {
+  calculatePurchaseLineTotal,
+  filterPurchaseHistory,
+  getPurchaseFilterError,
+  hasPurchaseHistoryFilters,
+  sumMoney,
+  type PurchaseHistoryFilters,
+} from "../lib/purchase";
 import { hasPermission } from "../lib/permissions";
 import type { Product, Supplier, User } from "../types";
 
@@ -51,6 +58,16 @@ type SupplierGoodsValues = z.infer<typeof supplierGoodsSchema>;
 
 const todayInBusinessTimezone = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(new Date());
+
+const EMPTY_PURCHASE_FILTERS: PurchaseHistoryFilters = {
+  fromDate: "",
+  toDate: "",
+  product: "",
+  minAmount: "",
+  maxAmount: "",
+  order: "",
+  paymentStatus: "all",
+};
 
 interface SuppliersPageProps {
   user: User;
@@ -128,6 +145,7 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [recordingFor, setRecordingFor] = useState<string | null>(null);
   const [goodsSuccess, setGoodsSuccess] = useState("");
+  const [purchaseFilters, setPurchaseFilters] = useState<PurchaseHistoryFilters>(EMPTY_PURCHASE_FILTERS);
   const canRecordOpeningBalance = hasPermission(user, "suppliers:opening_balance");
   const canReadPurchases = hasPermission(user, "purchases:read");
   const canCreatePurchase = hasPermission(user, "purchases:create");
@@ -144,6 +162,14 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
     queryFn: api.products,
     enabled: canRecordSupplierGoods,
   });
+  const filterError = getPurchaseFilterError(purchaseFilters);
+  const supplierPurchaseHistory = purchasesQuery.data?.filter((purchase) => purchase.supplier_id !== null) ?? [];
+  const matchingPurchases = filterError || !purchasesQuery.data
+    ? []
+    : filterPurchaseHistory(supplierPurchaseHistory, purchaseFilters);
+  const hasActivePurchaseFilters = hasPurchaseHistoryFilters(purchaseFilters);
+  const matchingPurchaseCount = matchingPurchases.length;
+  const matchingPurchaseTotal = sumMoney(matchingPurchases.map((purchase) => purchase.total_amount));
   const form = useForm<SupplierValues>({
     resolver: zodResolver(supplierSchema),
     defaultValues: {
@@ -360,7 +386,7 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
         <section className="settings-card record-list-card">
           <div className="settings-card-heading">
             <span className="settings-heading-icon"><Truck size={18} /></span>
-            <div><h2>Supplier directory</h2><p>Recent purchase history (up to 500 invoices) with supplied quantities, unit costs, and invoice totals.</p></div>
+            <div><h2>Supplier directory</h2><p>Filter up to the latest 500 supplier invoices by date, goods, amount, order reference, or payment status.</p></div>
           </div>
           {canReadPurchases && purchasesQuery.isError && (
             <p className="form-alert" role="alert">
@@ -372,6 +398,110 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
               {productsQuery.error instanceof ApiError ? productsQuery.error.message : "Unable to load products for supplier goods entry."}
             </p>
           )}
+          {canReadPurchases && (
+            <div className="supplier-purchase-filters">
+              <div className="supplier-purchase-filters-heading">
+                <span className="settings-heading-icon"><Filter size={16} /></span>
+                <div><strong>Filter receipts</strong><small>Find supplier invoices and supplied goods</small></div>
+              </div>
+              <div className="supplier-purchase-filter-grid">
+                <label className="field">
+                  <span>From day</span>
+                  <input
+                    type="date"
+                    max={purchaseFilters.toDate || undefined}
+                    value={purchaseFilters.fromDate}
+                    onChange={(event) => setPurchaseFilters((filters) => ({ ...filters, fromDate: event.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>To day</span>
+                  <input
+                    type="date"
+                    min={purchaseFilters.fromDate || undefined}
+                    value={purchaseFilters.toDate}
+                    onChange={(event) => setPurchaseFilters((filters) => ({ ...filters, toDate: event.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Goods / product</span>
+                  <input
+                    placeholder="Product name or SKU"
+                    type="search"
+                    value={purchaseFilters.product}
+                    onChange={(event) => setPurchaseFilters((filters) => ({ ...filters, product: event.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Minimum amount (NGN)</span>
+                  <input
+                    inputMode="decimal"
+                    min="0"
+                    placeholder="Any"
+                    step="0.01"
+                    type="number"
+                    value={purchaseFilters.minAmount}
+                    onChange={(event) => setPurchaseFilters((filters) => ({ ...filters, minAmount: event.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Maximum amount (NGN)</span>
+                  <input
+                    inputMode="decimal"
+                    min="0"
+                    placeholder="Any"
+                    step="0.01"
+                    type="number"
+                    value={purchaseFilters.maxAmount}
+                    onChange={(event) => setPurchaseFilters((filters) => ({ ...filters, maxAmount: event.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Invoice / order / supplier</span>
+                  <input
+                    placeholder="Invoice number or reference"
+                    type="search"
+                    value={purchaseFilters.order}
+                    onChange={(event) => setPurchaseFilters((filters) => ({ ...filters, order: event.target.value }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Payment status</span>
+                  <select
+                    value={purchaseFilters.paymentStatus}
+                    onChange={(event) => setPurchaseFilters((filters) => ({
+                      ...filters,
+                      paymentStatus: event.target.value === "paid" || event.target.value === "outstanding"
+                        ? event.target.value
+                        : "all",
+                    }))}
+                  >
+                    <option value="all">All invoices</option>
+                    <option value="outstanding">Outstanding balance</option>
+                    <option value="paid">Fully paid</option>
+                  </select>
+                </label>
+              </div>
+              {filterError && <p className="field-error" role="alert">{filterError}</p>}
+              <div aria-live="polite" className="supplier-purchase-filter-summary">
+                <span>
+                  {purchasesQuery.isPending
+                    ? "Loading receipts…"
+                    : `${matchingPurchaseCount} matching ${matchingPurchaseCount === 1 ? "receipt" : "receipts"}`}
+                </span>
+                <strong>{purchasesQuery.data && !filterError ? `Total: ${formatNaira(matchingPurchaseTotal)}` : ""}</strong>
+                {hasActivePurchaseFilters && (
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setPurchaseFilters(EMPTY_PURCHASE_FILTERS)}
+                    type="button"
+                  >
+                    <RotateCcw size={13} /> Clear filters
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {suppliersQuery.isPending ? (
             <div className="loading-panel"><LoaderCircle className="spin" size={19} /> Loading suppliers…</div>
           ) : suppliersQuery.isError ? (
@@ -380,12 +510,15 @@ export function SuppliersPage({ user }: SuppliersPageProps) {
             </p>
           ) : suppliersQuery.data.length === 0 ? (
             <p className="empty-staff">No supplier records yet.</p>
+          ) : hasActivePurchaseFilters && !filterError && purchasesQuery.data && matchingPurchases.length === 0 ? (
+            <p className="empty-staff">No supplier receipts match these filters.</p>
           ) : (
             <div className="record-list">
               {suppliersQuery.data.map((supplier) => {
-                const supplierPurchases = purchasesQuery.data?.filter(
+                const supplierPurchases = matchingPurchases.filter(
                   (purchase) => purchase.supplier_id === supplier.id,
-                ) ?? [];
+                );
+                if (hasActivePurchaseFilters && !filterError && purchasesQuery.data && supplierPurchases.length === 0) return null;
                 return (
                   <article className="record-row supplier-record-row" key={supplier.id}>
                     <span className="profile-avatar">{supplier.name.slice(0, 1).toUpperCase()}</span>
