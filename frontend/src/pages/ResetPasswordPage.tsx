@@ -59,7 +59,7 @@ export function ResetPasswordPage() {
           {complete ? (
             <div className="form-stack">
               <p className="success-alert" role="status">Your password has been reset. You can now sign in.</p>
-              <Link className="button button-primary button-wide auth-button-link" to="/">Continue to sign in</Link>
+              <Link className="button button-primary button-wide auth-button-link" to="/sign-in">Continue to sign in</Link>
             </div>
           ) : !token ? (
             <div className="form-stack">
@@ -84,7 +84,7 @@ export function ResetPasswordPage() {
               </button>
             </form>
           )}
-          <Link className="auth-back-link" to="/"><ArrowLeft size={15} /> Back to sign in</Link>
+          <Link className="auth-back-link" to="/sign-in"><ArrowLeft size={15} /> Back to sign in</Link>
         </div>
       </section>
     </main>

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { SignInPage } from "./components/SignInPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -21,14 +21,21 @@ import { TransactionHistoryPage } from "./pages/TransactionHistoryPage";
 import { api } from "./lib/api";
 import { hasPermission } from "./lib/permissions";
 import { ApiError } from "./lib/api";
+import { LandingPage } from "./pages/LandingPage";
 
 export default function App() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const sessionQuery = useQuery({
     queryKey: ["session"],
     queryFn: api.currentUser,
+    enabled: location.pathname !== "/",
     retry: false,
   });
+
+  if (location.pathname === "/") {
+    return <LandingPage signedIn={Boolean(sessionQuery.data)} />;
+  }
 
   if (sessionQuery.isPending) {
     return <main className="splash-loading"><LoaderCircle className="spin" size={23} /> Checking your secure session…</main>;
@@ -67,7 +74,7 @@ export default function App() {
               }
             />
           }
-          path="/"
+          path="/sign-in"
         />
         <Route element={<ForgotPasswordPage />} path="/forgot-password" />
         <Route element={<ResetPasswordPage />} path="/reset-password" />
@@ -89,12 +96,12 @@ export default function App() {
           />
         }
       >
-        <Route element={<DashboardPage user={sessionQuery.data} />} path="/" />
+        <Route element={<DashboardPage user={sessionQuery.data} />} path="/dashboard" />
         <Route
           element={
             hasPermission(sessionQuery.data, "customers:read")
               ? <CustomersPage user={sessionQuery.data} />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/customers"
         />
@@ -102,7 +109,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "suppliers:read")
               ? <SuppliersPage user={sessionQuery.data} />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/suppliers"
         />
@@ -110,7 +117,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "inventory:read")
               ? <InventoryPage user={sessionQuery.data} />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/inventory"
         />
@@ -118,7 +125,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "sales:read")
               ? <SalesPage user={sessionQuery.data} />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/sales"
         />
@@ -126,7 +133,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "purchases:read")
               ? <PurchasesPage user={sessionQuery.data} />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/purchases"
         />
@@ -134,7 +141,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "expenses:read")
               ? <ExpensesPage user={sessionQuery.data} />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/expenses"
         />
@@ -142,7 +149,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "reports:read")
               ? <ReportsPage />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/reports"
         />
@@ -150,7 +157,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "customers:read")
               ? <PaymentRemindersPage />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/payment-reminders"
         />
@@ -158,7 +165,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "audit:read")
               ? <TransactionHistoryPage />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/transaction-history"
         />
@@ -166,7 +173,7 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "settings:read")
               ? <SettingsPage />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/settings"
         />
@@ -174,13 +181,14 @@ export default function App() {
           element={
             hasPermission(sessionQuery.data, "staff:manage")
               ? <TeamPage />
-              : <Navigate replace to="/" />
+              : <Navigate replace to="/dashboard" />
           }
           path="/team"
         />
         <Route element={<AccountPage />} path="/account" />
-        <Route element={<Navigate replace to="/" />} path="*" />
+        <Route element={<Navigate replace to="/dashboard" />} path="*" />
       </Route>
+      <Route element={<Navigate replace to="/dashboard" />} path="*" />
     </Routes>
   );
 }

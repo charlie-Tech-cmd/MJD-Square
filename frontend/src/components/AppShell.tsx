@@ -26,7 +26,7 @@ import type { User } from "../types";
 import { Brand } from "./Brand";
 
 const navItems = [
-  { label: "Dashboard", to: "/", icon: LayoutDashboard, permission: "dashboard:read", active: true },
+  { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, permission: "dashboard:read", active: true },
   { label: "Sales & invoices", to: "/sales", icon: ShoppingBag, permission: "sales:read" },
   { label: "Customers", to: "/customers", icon: Users, permission: "customers:read" },
   { label: "Suppliers", to: "/suppliers", icon: BriefcaseBusiness, permission: "suppliers:read" },

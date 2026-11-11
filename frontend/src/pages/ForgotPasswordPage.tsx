@@ -60,7 +60,7 @@ export function ForgotPasswordPage() {
               {form.formState.isSubmitting ? "Sending instructions…" : "Send reset instructions"}
             </button>
           </form>
-          <Link className="auth-back-link" to="/"><ArrowLeft size={15} /> Back to sign in</Link>
+          <Link className="auth-back-link" to="/sign-in"><ArrowLeft size={15} /> Back to sign in</Link>
         </div>
       </section>
     </main>
