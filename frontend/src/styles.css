@@ -230,6 +230,27 @@ button { cursor: pointer; }
 .dashboard-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 21px; padding: 12px 14px; border: 1px solid #e5eaf0; border-radius: 7px; background: #fbfcfd; color: #8a97a6; }
 .dashboard-note svg { flex: 0 0 auto; margin-top: 1px; color: #8291a2; }
 .dashboard-note p { margin: 0; font-size: 10px; line-height: 1.6; }
+.dashboard-financials { margin-bottom: 26px; }
+.dashboard-period-heading { align-items: center; margin-top: 0; }
+.dashboard-period-heading p { margin: 5px 0 0; color: #8290a0; font-size: 10px; }
+.dashboard-periods { display: flex; flex-wrap: wrap; gap: 7px; }
+.dashboard-periods .button { min-height: 34px; padding: 0 12px; font-size: 10px; }
+.dashboard-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.dashboard-panel { max-width: none; padding: 18px; }
+.dashboard-panel .section-heading { margin: 0 0 13px; }
+.dashboard-panel .section-heading h2 { font-size: 13px; }
+.dashboard-trend { display: flex; height: 190px; align-items: stretch; gap: 3px; overflow-x: auto; padding: 8px 0 0; }
+.dashboard-trend-day { display: flex; min-width: 13px; flex: 1 0 13px; flex-direction: column; align-items: center; justify-content: flex-end; gap: 5px; }
+.dashboard-trend-bar { width: min(100%, 22px); min-height: 2px; border-radius: 3px 3px 0 0; background: #168a78; }
+.dashboard-trend-day small { color: #8995a4; font-size: 8px; writing-mode: vertical-rl; }
+.dashboard-aging-list, .dashboard-list { display: flex; flex-direction: column; }
+.dashboard-aging-row, .dashboard-list-row { display: flex; min-height: 39px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #f0f2f5; color: #59697e; font-size: 10px; }
+.dashboard-aging-row strong, .dashboard-list-row > strong { color: #35465c; white-space: nowrap; }
+.dashboard-list-row > span { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.dashboard-list-row > span strong { overflow: hidden; color: #35465c; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-list-row small { color: #8995a4; font-size: 9px; }
+.dashboard-panel .settings-hint { margin: 12px 0 0; font-size: 9px; }
+.dashboard-panel .text-link { display: inline-flex; align-items: center; gap: 5px; color: #168a78; font-size: 10px; text-decoration: none; }
 .app-footer { display: flex; justify-content: space-between; padding: 14px 40px 18px; border-top: 1px solid #e9edf1; color: #97a2af; font-size: 9px; }
 .footer-divider { padding: 0 4px; color: #bec6cf; }
 .settings-card { max-width: 760px; padding: 23px 25px 0; border: 1px solid #e7ebf0; border-radius: 9px; background: #fff; }
@@ -644,6 +665,10 @@ button { cursor: pointer; }
   .landing-primary-action, .landing-signin { transition: none; }
 }
 
+@media (max-width: 790px) {
+  .dashboard-detail-grid { grid-template-columns: 1fr; }
+  .dashboard-period-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
+}
 
 .password-input-wrap {
   position: relative;

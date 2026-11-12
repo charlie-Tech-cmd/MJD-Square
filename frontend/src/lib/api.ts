@@ -1,5 +1,6 @@
 import type {
   ApiErrorPayload,
+  DashboardSummary,
   BusinessSettings,
   AccountPaymentHistory,
   Customer,
@@ -394,6 +395,12 @@ export const api = {
   reportSummary(from: string, to: string): Promise<ReportSummary> {
     return request<ReportSummary>(
       `/reports/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    );
+  },
+
+  dashboardSummary(from: string, to: string): Promise<DashboardSummary> {
+    return request<DashboardSummary>(
+      `/dashboard/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     );
   },
 

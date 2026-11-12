@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -1038,3 +1039,227 @@ def report_outstanding(
         if balance > 0:
             suppliers.append({"id": supplier_id, "name": name, "balance_due": balance})
     return {"customer_balances": customers, "supplier_balances": suppliers}
+
+
+@router.get("/dashboard/summary")
+def dashboard_summary(
+    from_date: date = Query(alias="from"),
+    to_date: date = Query(alias="to"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_permission("reports:read")),
+) -> dict[str, object]:
+    if from_date > to_date:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The start date must be on or before the end date.",
+        )
+    if (to_date - from_date).days > 365:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Choose a dashboard period of 366 days or fewer.",
+        )
+
+    business_settings = db.get(BusinessSettings, 1)
+    business_timezone = ZoneInfo(
+        business_settings.timezone if business_settings else "Africa/Lagos"
+    )
+    today = utc_now().astimezone(business_timezone).date()
+    paid_by_sale = (
+        select(Payment.sale_id.label("sale_id"), func.sum(Payment.amount).label("amount_paid"))
+        .where(Payment.sale_id.is_not(None))
+        .group_by(Payment.sale_id)
+        .subquery()
+    )
+    paid_amount = func.coalesce(paid_by_sale.c.amount_paid, 0)
+
+    sales_total = db.scalar(
+        select(func.coalesce(func.sum(Sale.total_amount), 0)).where(
+            Sale.sale_date.between(from_date, to_date)
+        )
+    )
+    purchases_total = db.scalar(
+        select(func.coalesce(func.sum(Purchase.total_amount), 0)).where(
+            Purchase.purchase_date.between(from_date, to_date)
+        )
+    )
+    expenses_total = db.scalar(
+        select(func.coalesce(func.sum(Expense.amount), 0)).where(
+            Expense.expense_date.between(from_date, to_date)
+        )
+    )
+    payments_received = db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), 0)).where(
+            Payment.sale_id.is_not(None),
+            func.date(Payment.received_at).between(from_date, to_date),
+        )
+    )
+    payments_received += db.scalar(
+        select(func.coalesce(func.sum(AccountPayment.amount), 0)).where(
+            AccountPayment.customer_id.is_not(None),
+            func.date(AccountPayment.received_at).between(from_date, to_date),
+        )
+    )
+    payments_made = db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), 0)).where(
+            Payment.purchase_id.is_not(None),
+            func.date(Payment.received_at).between(from_date, to_date),
+        )
+    )
+    payments_made += db.scalar(
+        select(func.coalesce(func.sum(AccountPayment.amount), 0)).where(
+            AccountPayment.supplier_id.is_not(None),
+            func.date(AccountPayment.received_at).between(from_date, to_date),
+        )
+    )
+
+    customer_receivables = (
+        db.scalar(select(func.coalesce(func.sum(CustomerOpeningBalance.amount), 0)))
+        + db.scalar(select(func.coalesce(func.sum(Sale.total_amount), 0)))
+        - db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.sale_id.is_not(None)
+            )
+        )
+        - db.scalar(
+            select(func.coalesce(func.sum(AccountPayment.amount), 0)).where(
+                AccountPayment.customer_id.is_not(None)
+            )
+        )
+    )
+    supplier_payables = (
+        db.scalar(select(func.coalesce(func.sum(SupplierOpeningBalance.amount), 0)))
+        + db.scalar(select(func.coalesce(func.sum(Purchase.total_amount), 0)))
+        - db.scalar(
+            select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                Payment.purchase_id.is_not(None)
+            )
+        )
+        - db.scalar(
+            select(func.coalesce(func.sum(AccountPayment.amount), 0)).where(
+                AccountPayment.supplier_id.is_not(None)
+            )
+        )
+    )
+    inventory_value = db.scalar(
+        select(func.coalesce(func.sum(InventoryBalance.quantity * Product.purchase_cost), 0))
+        .join(Product, Product.id == InventoryBalance.product_id)
+    )
+    low_stock_count = db.scalar(
+        select(func.count())
+        .select_from(InventoryBalance)
+        .join(Product, Product.id == InventoryBalance.product_id)
+        .where(
+            Product.is_active.is_(True),
+            Product.minimum_stock > 0,
+            InventoryBalance.quantity <= Product.minimum_stock,
+        )
+    )
+
+    sales_by_date = dict(
+        db.execute(
+            select(Sale.sale_date, func.sum(Sale.total_amount))
+            .where(Sale.sale_date.between(from_date, to_date))
+            .group_by(Sale.sale_date)
+        ).all()
+    )
+    sales_trend = [
+        {
+            "date": (from_date + timedelta(days=day_offset)).isoformat(),
+            "sales_total": str(sales_by_date.get(from_date + timedelta(days=day_offset), 0)),
+        }
+        for day_offset in range((to_date - from_date).days + 1)
+    ]
+    top_products = db.execute(
+        select(
+            SaleLine.product_id,
+            SaleLine.product_name,
+            func.sum(SaleLine.quantity).label("quantity_sold"),
+            func.sum(SaleLine.line_total).label("sales_total"),
+        )
+        .join(Sale, Sale.id == SaleLine.sale_id)
+        .where(Sale.sale_date.between(from_date, to_date))
+        .group_by(SaleLine.product_id, SaleLine.product_name)
+        .order_by(func.sum(SaleLine.line_total).desc(), SaleLine.product_name)
+        .limit(5)
+    ).all()
+
+    aging_rows = db.execute(
+        select(Sale.due_date, func.sum(Sale.total_amount - paid_amount))
+        .outerjoin(paid_by_sale, Sale.id == paid_by_sale.c.sale_id)
+        .where(Sale.due_date < today, Sale.total_amount > paid_amount)
+        .group_by(Sale.due_date)
+    ).all()
+    overdue_buckets = {
+        "1_30_days": Decimal("0"),
+        "31_60_days": Decimal("0"),
+        "61_90_days": Decimal("0"),
+        "over_90_days": Decimal("0"),
+    }
+    for due_date, balance in aging_rows:
+        days_overdue = (today - due_date).days
+        bucket = (
+            "1_30_days"
+            if days_overdue <= 30
+            else "31_60_days"
+            if days_overdue <= 60
+            else "61_90_days"
+            if days_overdue <= 90
+            else "over_90_days"
+        )
+        overdue_buckets[bucket] += balance
+
+    recent_activity = db.scalars(
+        select(AuditLog)
+        .options(selectinload(AuditLog.actor))
+        .where(
+            AuditLog.entity_type.in_(
+                ("sale", "purchase", "expense", "customer", "supplier", "payment")
+            )
+        )
+        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+        .limit(8)
+    ).all()
+
+    return {
+        "from_date": from_date,
+        "to_date": to_date,
+        "sales_total": str(sales_total),
+        "payments_received": str(payments_received),
+        "purchases_total": str(purchases_total),
+        "payments_made": str(payments_made),
+        "expenses_total": str(expenses_total),
+        "customer_receivables": str(customer_receivables),
+        "supplier_payables": str(supplier_payables),
+        "overdue_invoice_buckets": {
+            bucket: str(amount) for bucket, amount in overdue_buckets.items()
+        },
+        "inventory_value_at_recorded_cost": str(inventory_value),
+        "low_stock_count": low_stock_count,
+        "sales_trend": sales_trend,
+        "top_products": [
+            {
+                "product_id": product_id,
+                "product_name": product_name,
+                "quantity_sold": str(quantity_sold),
+                "sales_total": str(product_sales),
+            }
+            for product_id, product_name, quantity_sold, product_sales in top_products
+        ],
+        "recent_activity": [
+            {
+                "id": entry.id,
+                "action": entry.action,
+                "entity_type": entry.entity_type,
+                "entity_id": entry.entity_id,
+                "details": entry.details,
+                "actor_name": entry.actor.full_name if entry.actor else None,
+                "created_at": entry.created_at,
+            }
+            for entry in recent_activity
+        ],
+        "aging_note": (
+            "Invoice aging uses invoice-linked payments only. Account payments are not "
+            "allocated to individual invoices and are excluded from these aging buckets."
+        ),
+        "inventory_value_note": "Estimate uses current recorded product cost, not FIFO accounting.",
+    }

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -303,3 +303,56 @@ def test_customer_balance_combines_opening_balance_sales_and_payments(client, db
     assert db_session.scalar(
         select(AccountPayment).where(AccountPayment.customer_id == customer.id)
     ).amount == Decimal("1000.00")
+
+
+def test_dashboard_summary_reports_financial_and_inventory_metrics(client, db_session: Session):
+    create_user(db_session, "Owner", "owner@example.com")
+    product = create_product(db_session, stock="10")
+    csrf = sign_in(client, "owner@example.com")
+    sale_date = date.today() - timedelta(days=45)
+    due_date = date.today() - timedelta(days=40)
+
+    sale = client.post(
+        "/api/v1/sales",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "sale_date": sale_date.isoformat(),
+            "due_date": due_date.isoformat(),
+            "lines": [{"product_id": product.id, "quantity": "2"}],
+            "payment_amount": "100.00",
+            "payment_method": "Cash",
+        },
+    )
+    assert sale.status_code == 201
+    product.is_active = False
+    db_session.commit()
+
+    response = client.get(
+        f"/api/v1/dashboard/summary?from={sale_date.isoformat()}&to={date.today().isoformat()}"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["sales_total"] == "400.00"
+    assert data["customer_receivables"] == "300.00"
+    assert data["overdue_invoice_buckets"]["31_60_days"] == "300.00"
+    assert data["inventory_value_at_recorded_cost"] == "800.00"
+    assert data["sales_trend"][0] == {
+        "date": sale_date.isoformat(),
+        "sales_total": "400.00",
+    }
+    assert data["top_products"][0]["product_id"] == product.id
+    assert data["top_products"][0]["quantity_sold"] == "2.000"
+    assert data["aging_note"]
+    assert data["inventory_value_note"]
+
+
+def test_dashboard_summary_is_limited_to_financial_report_permission(client, db_session: Session):
+    create_user(db_session, "Shop staff", "staff@example.com")
+    sign_in(client, "staff@example.com")
+
+    response = client.get(
+        f"/api/v1/dashboard/summary?from={date.today().isoformat()}&to={date.today().isoformat()}"
+    )
+
+    assert response.status_code == 403

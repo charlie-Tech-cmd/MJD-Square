@@ -353,6 +353,44 @@ export interface ReportSummary {
   low_stock_count: number;
 }
 
+export interface DashboardSummary {
+  from_date: string;
+  to_date: string;
+  sales_total: string;
+  payments_received: string;
+  purchases_total: string;
+  payments_made: string;
+  expenses_total: string;
+  customer_receivables: string;
+  supplier_payables: string;
+  overdue_invoice_buckets: {
+    "1_30_days": string;
+    "31_60_days": string;
+    "61_90_days": string;
+    over_90_days: string;
+  };
+  inventory_value_at_recorded_cost: string;
+  low_stock_count: number;
+  sales_trend: { date: string; sales_total: string }[];
+  top_products: {
+    product_id: string;
+    product_name: string;
+    quantity_sold: string;
+    sales_total: string;
+  }[];
+  recent_activity: {
+    id: number;
+    action: string;
+    entity_type: string;
+    entity_id: string | null;
+    details: Record<string, unknown>;
+    actor_name: string | null;
+    created_at: string;
+  }[];
+  aging_note: string;
+  inventory_value_note: string;
+}
+
 export interface OutstandingBalance {
   id: string;
   name: string;
