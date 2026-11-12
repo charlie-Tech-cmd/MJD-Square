@@ -28,6 +28,10 @@ const purchaseSchema = z.object({
   payment_reference: z.string().max(100),
   notes: z.string().max(1000),
 }).superRefine((value, context) => {
+  const productIds = value.lines.map((line) => line.product_id).filter(Boolean);
+  if (new Set(productIds).size !== productIds.length) {
+    context.addIssue({ code: "custom", path: ["lines"], message: "Choose a different product for each item." });
+  }
   if (value.lines.some((line) => !/[1-9]/.test(line.quantity))) {
     context.addIssue({ code: "custom", path: ["lines"], message: "Every item needs a quantity greater than zero." });
   }
@@ -76,6 +80,7 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
   });
   const lines = useFieldArray({ control: form.control, name: "lines" });
   const watchedLines = form.watch("lines");
+  const activeProducts = productsQuery.data?.filter((product) => product.is_active) ?? [];
   const lineTotals = watchedLines.map((line) => (
     line.product_id ? calculatePurchaseLineTotal(line.quantity, line.unit_cost) : null
   ));
@@ -189,8 +194,13 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
             <div className="record-subsection">
               <div className="record-subsection-heading">
                 <strong>Items received</strong>
-                <button className="button button-secondary" onClick={() => lines.append({ product_id: "", quantity: "1", unit_cost: "0.00" })} type="button">
-                  <Plus size={14} /> Add item
+                <button
+                  className="button button-secondary"
+                  disabled={lines.fields.length >= 100 || watchedLines.filter((line) => line.product_id).length >= activeProducts.length}
+                  onClick={() => lines.append({ product_id: "", quantity: "1", unit_cost: "0.00" })}
+                  type="button"
+                >
+                  <Plus size={14} /> Add another product
                 </button>
               </div>
               {lines.fields.map((field, index) => (
@@ -202,7 +212,12 @@ export function PurchasesPage({ user }: PurchasesPageProps) {
                       if (product) form.setValue(`lines.${index}.unit_cost`, product.purchase_cost);
                     }}>
                       <option value="">Choose product</option>
-                      {productsQuery.data.filter((product) => product.is_active).map((product) =>
+                      {activeProducts.filter((product) => (
+                        product.id === watchedLines[index]?.product_id
+                        || !watchedLines.some((line, otherIndex) => (
+                          otherIndex !== index && line.product_id === product.id
+                        ))
+                      )).map((product) =>
                         <option key={product.id} value={product.id}>{product.name} · stock {formatQuantity(product.stock_quantity, product.unit_decimal_places)}</option>)}
                     </select>
                   </label>

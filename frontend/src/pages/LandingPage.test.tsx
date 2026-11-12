@@ -15,6 +15,9 @@ describe("LandingPage", () => {
       screen.getByRole("heading", { name: "A better way to buy. A better way to sell." }),
     ).toBeInTheDocument();
     expect(screen.getByText("GOOD GOODS. FAIR DEALS. BUILT ON TRUST.")).toBeInTheDocument();
+    expect(screen.getByRole("img", {
+      name: "Shelves stocked with assorted soft drinks, hot drinks, wine, and table water",
+    })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trust" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Quality goods" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Customer satisfaction" })).toBeInTheDocument();

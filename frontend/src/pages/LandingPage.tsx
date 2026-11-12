@@ -100,11 +100,14 @@ export function LandingPage({ signedIn }: LandingPageProps) {
                 <span>Quality goods. People-first service.</span>
               </div>
             </div>
-            <div aria-hidden="true" className="landing-shelf">
-              <span className="landing-product landing-product-tall" />
-              <span className="landing-product landing-product-short" />
-              <span className="landing-product landing-product-wide" />
-              <span className="landing-product landing-product-small" />
+            <div className="landing-shelf">
+              <img
+                alt="Shelves stocked with assorted soft drinks, hot drinks, wine, and table water"
+                className="landing-shelf-image"
+                height="320"
+                src="/drink-shelf.svg"
+                width="960"
+              />
             </div>
             <div className="landing-art-bottom">
               <span><i /> Thoughtful service</span>

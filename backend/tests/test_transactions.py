@@ -111,6 +111,63 @@ def test_sale_updates_stock_and_records_partial_and_final_payments(client, db_se
     assert db_session.scalar(select(AuditLog).where(AuditLog.action == "sale.create"))
 
 
+def test_sale_and_purchase_support_multiple_distinct_products(client, db_session: Session):
+    create_user(db_session, "Owner", "owner@example.com")
+    first_product = create_product(db_session)
+    second_product = Product(
+        name="Juice",
+        sku="JUICE-001",
+        unit_id="piece",
+        purchase_cost=Decimal("150.00"),
+        retail_price=Decimal("300.00"),
+        wholesale_price=Decimal("250.00"),
+        minimum_stock=Decimal("2"),
+        inventory_balance=InventoryBalance(quantity=Decimal("10")),
+    )
+    db_session.add(second_product)
+    db_session.commit()
+    csrf = sign_in(client, "owner@example.com")
+
+    sale_response = client.post(
+        "/api/v1/sales",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "sale_type": "retail",
+            "sale_date": "2026-11-09",
+            "lines": [
+                {"product_id": first_product.id, "quantity": "2"},
+                {"product_id": second_product.id, "quantity": "1"},
+            ],
+        },
+    )
+
+    assert sale_response.status_code == 201
+    sale = sale_response.json()
+    assert sale["total_amount"] == "700.00"
+    assert len(sale["lines"]) == 2
+    assert db_session.get(InventoryBalance, first_product.id).quantity == Decimal("8.000")
+    assert db_session.get(InventoryBalance, second_product.id).quantity == Decimal("9.000")
+
+    purchase_response = client.post(
+        "/api/v1/purchases",
+        headers={"X-CSRF-Token": csrf},
+        json={
+            "purchase_date": "2026-11-09",
+            "lines": [
+                {"product_id": first_product.id, "quantity": "2", "unit_cost": "100.00"},
+                {"product_id": second_product.id, "quantity": "3", "unit_cost": "150.00"},
+            ],
+        },
+    )
+
+    assert purchase_response.status_code == 201
+    purchase = purchase_response.json()
+    assert purchase["total_amount"] == "650.00"
+    assert len(purchase["lines"]) == 2
+    assert db_session.get(InventoryBalance, first_product.id).quantity == Decimal("10.000")
+    assert db_session.get(InventoryBalance, second_product.id).quantity == Decimal("12.000")
+
+
 def test_sale_rejects_insufficient_stock_without_partial_changes(client, db_session: Session):
     create_user(db_session, "Owner", "owner@example.com")
     product = create_product(db_session, stock="1")

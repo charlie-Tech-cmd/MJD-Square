@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { formatNaira, formatQuantity } from "../lib/format";
 import { hasPermission } from "../lib/permissions";
+import { calculateSaleLineQuote, sumSaleLineTotals } from "../lib/sale";
 import { PaymentReceiptDialog, type PaymentReceiptDetails } from "../components/PaymentReceiptDialog";
 import { PaymentEvidenceFiles } from "../components/PaymentEvidenceFiles";
 import type { Sale, TransactionPayment, User } from "../types";
@@ -28,6 +29,10 @@ const saleSchema = z.object({
   payment_reference: z.string().max(100),
   notes: z.string().max(1000),
 }).superRefine((value, context) => {
+  const productIds = value.lines.map((line) => line.product_id).filter(Boolean);
+  if (new Set(productIds).size !== productIds.length) {
+    context.addIssue({ code: "custom", path: ["lines"], message: "Choose a different product for each item." });
+  }
   if (value.lines.some((line) => !/[1-9]/.test(line.quantity))) {
     context.addIssue({ code: "custom", path: ["lines"], message: "Every item needs a quantity greater than zero." });
   }
@@ -128,6 +133,14 @@ export function SalesPage({ user }: SalesPageProps) {
     },
   });
   const lines = useFieldArray({ control: form.control, name: "lines" });
+  const watchedLines = form.watch("lines");
+  const saleType = form.watch("sale_type");
+  const activeProducts = productsQuery.data?.filter((product) => product.is_active) ?? [];
+  const lineQuotes = watchedLines.map((line) => {
+    const product = activeProducts.find((item) => item.id === line.product_id);
+    return product ? calculateSaleLineQuote(product, saleType, line.quantity) : null;
+  });
+  const saleTotal = sumSaleLineTotals(lineQuotes.map((quote) => quote?.lineTotal ?? null));
   const createMutation = useMutation({
     mutationFn: api.createSale,
     onSuccess: async (sale) => {
@@ -257,8 +270,13 @@ export function SalesPage({ user }: SalesPageProps) {
             <div className="record-subsection">
               <div className="record-subsection-heading">
                 <strong>Items</strong>
-                <button className="button button-secondary" onClick={() => lines.append({ product_id: "", quantity: "1" })} type="button">
-                  <Plus size={14} /> Add item
+                <button
+                  className="button button-secondary"
+                  disabled={lines.fields.length >= 100 || watchedLines.filter((line) => line.product_id).length >= activeProducts.length}
+                  onClick={() => lines.append({ product_id: "", quantity: "1" })}
+                  type="button"
+                >
+                  <Plus size={14} /> Add another product
                 </button>
               </div>
               {lines.fields.map((field, index) => (
@@ -266,7 +284,12 @@ export function SalesPage({ user }: SalesPageProps) {
                   <label className="field"><span>Product</span>
                     <select {...form.register(`lines.${index}.product_id`)}>
                       <option value="">Choose product</option>
-                      {productsQuery.data.filter((product) => product.is_active).map((product) =>
+                      {activeProducts.filter((product) => (
+                        product.id === watchedLines[index]?.product_id
+                        || !watchedLines.some((line, otherIndex) => (
+                          otherIndex !== index && line.product_id === product.id
+                        ))
+                      )).map((product) =>
                         <option key={product.id} value={product.id}>
                           {product.name} · stock {formatQuantity(product.stock_quantity, product.unit_decimal_places)}
                         </option>)}
@@ -274,9 +297,19 @@ export function SalesPage({ user }: SalesPageProps) {
                   </label>
                   <label className="field"><span>Quantity</span><input inputMode="decimal" {...form.register(`lines.${index}.quantity`)} /></label>
                   {lines.fields.length > 1 && <button className="button button-secondary" onClick={() => lines.remove(index)} type="button">Remove</button>}
+                  <div className="purchase-line-total">
+                    <span>{lineQuotes[index]
+                      ? `${formatNaira(lineQuotes[index].unitPrice)} per unit · Line total`
+                      : "Unit price · Line total"}</span>
+                    <strong>{lineQuotes[index] ? formatNaira(lineQuotes[index].lineTotal) : "—"}</strong>
+                  </div>
                 </div>
               ))}
               {form.formState.errors.lines && <small className="field-error">{form.formState.errors.lines.message}</small>}
+              <div aria-live="polite" className="purchase-goods-total">
+                <span>Sale total</span>
+                <strong>{saleTotal === null ? "Complete each product and quantity" : formatNaira(saleTotal)}</strong>
+              </div>
             </div>
             {canTakePayment && (
               <div className="settings-field-row">
