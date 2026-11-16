@@ -33,6 +33,88 @@ def create_user(
     return user
 
 
+def test_owner_setup_creates_first_owner_and_closes_setup(client, db_session, monkeypatch):
+    setup_token = "test-initial-owner-setup-token-0123456789"
+    monkeypatch.setattr("app.api.auth.settings.owner_setup_token", setup_token)
+
+    assert client.get("/api/v1/auth/setup-status").json() == {"enabled": True}
+
+    response = client.post(
+        "/api/v1/auth/setup-owner",
+        json={
+            "setup_token": setup_token,
+            "email": "owner@example.com",
+            "full_name": "Business Owner",
+            "password": "a strong owner password",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {"status": "owner_created"}
+    assert client.get("/api/v1/auth/setup-status").json() == {"enabled": False}
+
+    owner = db_session.scalar(select(User).where(User.email == "owner@example.com"))
+    assert owner is not None
+    assert owner.role.name == "Owner"
+    assert db_session.scalar(select(AuditLog).where(AuditLog.action == "user.bootstrap"))
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "owner@example.com", "password": "a strong owner password"},
+    )
+    assert login_response.status_code == 200
+
+
+def test_owner_setup_rejects_invalid_key_and_is_unavailable_without_configuration(
+    client, db_session, monkeypatch
+):
+    monkeypatch.setattr(
+        "app.api.auth.settings.owner_setup_token",
+        "test-initial-owner-setup-token-0123456789",
+    )
+    payload = {
+        "setup_token": "wrong-initial-owner-setup-token-0123456789",
+        "email": "owner@example.com",
+        "full_name": "Business Owner",
+        "password": "a strong owner password",
+    }
+
+    response = client.post("/api/v1/auth/setup-owner", json=payload)
+
+    assert response.status_code == 403
+    assert db_session.scalar(select(User).where(User.email == "owner@example.com")) is None
+
+    monkeypatch.setattr("app.api.auth.settings.owner_setup_token", None)
+    assert client.get("/api/v1/auth/setup-status").json() == {"enabled": False}
+    disabled = client.post(
+        "/api/v1/auth/setup-owner",
+        json={
+            **payload,
+            "setup_token": "test-initial-owner-setup-token-0123456789",
+        },
+    )
+    assert disabled.status_code == 403
+
+
+def test_owner_setup_rejects_second_owner_creation(client, db_session, monkeypatch):
+    setup_token = "test-initial-owner-setup-token-0123456789"
+    monkeypatch.setattr("app.api.auth.settings.owner_setup_token", setup_token)
+    create_user(db_session, "Owner", "existing-owner@example.com")
+
+    response = client.post(
+        "/api/v1/auth/setup-owner",
+        json={
+            "setup_token": setup_token,
+            "email": "new-owner@example.com",
+            "full_name": "Second Owner",
+            "password": "a strong owner password",
+        },
+    )
+
+    assert response.status_code == 409
+    assert db_session.scalar(select(User).where(User.email == "new-owner@example.com")) is None
+
+
 def test_login_sets_opaque_http_only_session_and_csrf_cookie(client, db_session):
     create_user(db_session, "Owner", "owner@example.com")
 

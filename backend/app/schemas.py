@@ -10,6 +10,23 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class OwnerSetupRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    setup_token: str = Field(min_length=32, max_length=256)
+    email: EmailStr
+    full_name: str = Field(min_length=1, max_length=160)
+    password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("full_name")
+    @classmethod
+    def strip_full_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Name cannot be blank.")
+        return value
+
+
 class PasswordChangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

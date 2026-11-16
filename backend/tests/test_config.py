@@ -10,6 +10,7 @@ def production_settings(cors_origins: str) -> Settings:
         app_env="production",
         database_url="postgresql://user:password@localhost/mjd_square",
         cookie_secure=True,
+        owner_setup_token="test-owner-setup-token-that-is-at-least-32-chars",
         cors_origins=cors_origins,
         frontend_url="https://app.example.com",
         smtp_host="smtp.example.com",
@@ -64,6 +65,7 @@ def test_production_requires_receipt_storage():
             app_env="production",
             database_url="postgresql+psycopg://user:password@localhost/mjd_square",
             cookie_secure=True,
+            owner_setup_token="test-owner-setup-token-that-is-at-least-32-chars",
             cors_origins="https://app.example.com",
             frontend_url="https://app.example.com",
             smtp_host="smtp.example.com",
@@ -81,6 +83,7 @@ def test_production_requires_authenticated_smtp():
             app_env="production",
             database_url="postgresql://localhost/mjd_square",
             cookie_secure=True,
+            owner_setup_token="test-owner-setup-token-that-is-at-least-32-chars",
             cors_origins="https://app.example.com",
             frontend_url="https://app.example.com",
             smtp_host="smtp.example.com",
@@ -100,6 +103,7 @@ def test_production_rejects_insecure_receipt_storage_endpoint():
             app_env="production",
             database_url="postgresql://localhost/mjd_square",
             cookie_secure=True,
+            owner_setup_token="test-owner-setup-token-that-is-at-least-32-chars",
             cors_origins="https://app.example.com",
             frontend_url="https://app.example.com",
             smtp_host="smtp.example.com",
@@ -123,6 +127,27 @@ def test_development_preserves_localhost_http_origin():
     )
 
     assert configured.allowed_origins == ["http://localhost:5173"]
+
+
+def test_production_requires_a_long_owner_setup_token():
+    with pytest.raises(ValidationError, match="OWNER_SETUP_TOKEN"):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            cookie_secure=True,
+            owner_setup_token="too-short",
+            cors_origins="https://app.example.com",
+            frontend_url="https://app.example.com",
+            smtp_host="smtp.example.com",
+            smtp_username="smtp-user",
+            smtp_password="smtp-password",
+            smtp_use_starttls=True,
+            mail_from="noreply@example.com",
+            s3_region="auto",
+            s3_bucket="payment-evidence",
+            s3_access_key_id="test-access-key",
+            s3_secret_access_key="test-secret-key",
+        )
 
 
 def test_whatsapp_sender_settings_must_be_complete():

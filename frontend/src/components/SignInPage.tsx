@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -20,6 +21,11 @@ interface SignInPageProps {
 }
 
 export function SignInPage({ onSignedIn }: SignInPageProps) {
+  const setupStatus = useQuery({
+    queryKey: ["owner-setup-status"],
+    queryFn: api.ownerSetupStatus,
+    retry: false,
+  });
   const [serverError, setServerError] = useState("");
   const {
     register,
@@ -99,6 +105,11 @@ export function SignInPage({ onSignedIn }: SignInPageProps) {
             </button>
           </form>
           <p className="auth-security-note">Access is protected and monitored for your security.</p>
+          {setupStatus.data?.enabled && (
+            <p className="auth-security-note">
+              First time here? <Link to="/setup">Set up the owner account</Link>
+            </p>
+          )}
         </div>
       </section>
     </main>

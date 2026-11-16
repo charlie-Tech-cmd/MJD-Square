@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     database_url: str = f"sqlite:///{LOCAL_DATABASE_PATH.as_posix()}"
     cookie_secure: bool = False
+    owner_setup_token: str | None = None
     cors_origins: str = "http://localhost:5173"
     frontend_url: str = "http://localhost:5173"
     smtp_host: str | None = Field(
@@ -88,6 +89,10 @@ class Settings(BaseSettings):
         if self.app_env == "production":
             if not self.cookie_secure:
                 raise ValueError("COOKIE_SECURE must be true in production.")
+            if not self.owner_setup_token or len(self.owner_setup_token) < 32:
+                raise ValueError(
+                    "Production requires OWNER_SETUP_TOKEN with at least 32 characters."
+                )
             if not self.database_url.startswith("postgresql"):
                 raise ValueError("Production must use PostgreSQL.")
             if not self.smtp_host or not self.mail_from or not self.smtp_use_starttls:

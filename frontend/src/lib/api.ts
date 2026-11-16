@@ -65,7 +65,12 @@ async function request<T>(
   if (options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
-  const csrfExemptPaths = ["/auth/login", "/auth/forgot-password", "/auth/reset-password"];
+  const csrfExemptPaths = [
+    "/auth/login",
+    "/auth/setup-owner",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+  ];
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method) && !csrfExemptPaths.includes(path)) {
     const csrfToken = readCsrfToken(document.cookie);
     if (!csrfToken) throw new ApiError("Your session expired. Please sign in again.", 403);
@@ -110,6 +115,22 @@ export const api = {
     return request<User>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    });
+  },
+
+  ownerSetupStatus(): Promise<{ enabled: boolean }> {
+    return request<{ enabled: boolean }>("/auth/setup-status");
+  },
+
+  setupOwner(payload: {
+    setup_token: string;
+    email: string;
+    full_name: string;
+    password: string;
+  }): Promise<{ status: string }> {
+    return request<{ status: string }>("/auth/setup-owner", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
   },
 

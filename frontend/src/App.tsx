@@ -22,6 +22,7 @@ import { api } from "./lib/api";
 import { hasPermission } from "./lib/permissions";
 import { ApiError } from "./lib/api";
 import { LandingPage } from "./pages/LandingPage";
+import { OwnerSetupPage } from "./pages/OwnerSetupPage";
 
 export default function App() {
   const queryClient = useQueryClient();
@@ -78,6 +79,7 @@ export default function App() {
         />
         <Route element={<ForgotPasswordPage />} path="/forgot-password" />
         <Route element={<ResetPasswordPage />} path="/reset-password" />
+        <Route element={<OwnerSetupPage />} path="/setup" />
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>
     );

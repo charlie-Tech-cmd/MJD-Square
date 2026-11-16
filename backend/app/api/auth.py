@@ -1,3 +1,4 @@
+import hmac
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.cli import ensure_foundation_records
 from app.config import settings
 from app.db import get_db
 from app.email_service import send_password_reset_email
@@ -14,6 +16,7 @@ from app.models import (
     LoginAttempt,
     PasswordResetAttempt,
     PasswordResetToken,
+    Role,
     User,
     utc_now,
 )
@@ -27,6 +30,7 @@ from app.permissions import (
 )
 from app.schemas import (
     LoginRequest,
+    OwnerSetupRequest,
     PasswordChangeRequest,
     PasswordResetConfirmRequest,
     PasswordResetRequest,
@@ -45,12 +49,91 @@ MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_WINDOW = timedelta(minutes=15)
 LOGIN_ATTEMPT_RETENTION = timedelta(hours=24)
 COOKIE_PATH = "/api/v1"
+OWNER_SETUP_LOCK_ID = 743291608214
 
 
 def get_client_ip(request: Request) -> str:
     if request.client:
         return request.client.host[:64]
     return "unknown"
+
+
+def owner_setup_is_available(db: Session) -> bool:
+    if not settings.owner_setup_token:
+        return False
+    return (
+        db.scalar(
+            select(User.id)
+            .join(Role, User.role_id == Role.id)
+            .where(Role.name == "Owner")
+            .limit(1)
+        )
+        is None
+    )
+
+
+def lock_owner_setup(db: Session) -> None:
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(
+            select(func.pg_advisory_xact_lock(OWNER_SETUP_LOCK_ID))
+        )
+
+
+@router.get("/setup-status")
+def owner_setup_status(db: Session = Depends(get_db)) -> dict[str, bool]:
+    return {"enabled": owner_setup_is_available(db)}
+
+
+@router.post("/setup-owner", status_code=status.HTTP_201_CREATED)
+def setup_owner(
+    payload: OwnerSetupRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    if (
+        not settings.owner_setup_token
+        or not hmac.compare_digest(payload.setup_token, settings.owner_setup_token)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner setup is unavailable or the setup key is invalid.",
+        )
+
+    lock_owner_setup(db)
+    owner, _ = ensure_foundation_records(db)
+    if not owner_setup_is_available(db):
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Owner setup has already been completed.",
+        )
+
+    email = str(payload.email).lower()
+    if db.scalar(select(User.id).where(User.email == email)) is not None:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with that email address already exists.",
+        )
+
+    user = User(
+        email=email,
+        full_name=payload.full_name,
+        password_hash=hash_password(payload.password),
+        role=owner,
+    )
+    db.add(user)
+    db.flush()
+    db.add(
+        AuditLog(
+            actor_user_id=user.id,
+            action="user.bootstrap",
+            entity_type="user",
+            entity_id=user.id,
+            details={"role": "Owner"},
+        )
+    )
+    db.commit()
+    return {"status": "owner_created"}
 
 
 @router.post("/login", response_model=UserResponse)
