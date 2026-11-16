@@ -317,6 +317,36 @@ def test_forgot_password_limits_reset_tokens_per_account(client, db_session, mon
     assert db_session.query(PasswordResetToken).filter_by(user_id=user.id).count() == 3
 
 
+def test_forgot_password_ignores_expired_tokens_when_counting_active_reset_tokens(
+    client, db_session, monkeypatch
+):
+    user = create_user(db_session, "Owner", "owner@example.com")
+    sent_emails = []
+    monkeypatch.setattr(
+        "app.api.auth.send_password_reset_email",
+        lambda recipient, reset_url: sent_emails.append(reset_url),
+    )
+
+    db_session.add_all(
+        [
+            PasswordResetToken(
+                token_hash=token_digest(f"expired-token-{index}"),
+                user_id=user.id,
+                expires_at=datetime.now(UTC) - timedelta(minutes=5),
+                created_at=datetime.now(UTC) - timedelta(minutes=10),
+            )
+            for index in range(3)
+        ]
+    )
+    db_session.commit()
+
+    response = request_password_reset(client, user.email)
+
+    assert response.status_code == 200
+    assert len(sent_emails) == 1
+    assert db_session.query(PasswordResetToken).filter_by(user_id=user.id).count() == 4
+
+
 def test_forgot_password_does_not_send_email_for_inactive_user(client, db_session, monkeypatch):
     user = create_user(db_session, "Owner", "inactive@example.com")
     user.is_active = False

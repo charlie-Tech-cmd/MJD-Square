@@ -295,6 +295,8 @@ def forgot_password(
                 select(func.count(PasswordResetToken.id)).where(
                     PasswordResetToken.user_id == user.id,
                     PasswordResetToken.created_at >= now - RESET_ACCOUNT_WINDOW,
+                    PasswordResetToken.expires_at > now,
+                    PasswordResetToken.used_at.is_(None),
                 )
             )
             or 0
