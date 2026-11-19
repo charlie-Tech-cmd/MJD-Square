@@ -11,6 +11,7 @@ import {
   KeyRound,
   Menu,
   PackageOpen,
+  ReceiptText,
   Settings,
   ShoppingBag,
   Users,
@@ -28,6 +29,7 @@ import { Brand } from "./Brand";
 const navItems = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard, permission: "dashboard:read", active: true },
   { label: "Sales & invoices", to: "/sales", icon: ShoppingBag, permission: "sales:read" },
+  { label: "Manual receipts", to: "/manual-receipts", icon: ReceiptText, permission: "payments:read" },
   { label: "Customers", to: "/customers", icon: Users, permission: "customers:read" },
   { label: "Suppliers", to: "/suppliers", icon: BriefcaseBusiness, permission: "suppliers:read" },
   { label: "Products & inventory", to: "/inventory", icon: Boxes, permission: "inventory:read" },
@@ -156,6 +158,7 @@ export function AppShell({ user, onSignOut }: AppShellProps) {
     "/suppliers": "Suppliers",
     "/inventory": "Products & inventory",
     "/sales": "Sales & invoices",
+    "/manual-receipts": "Manual receipts",
     "/purchases": "Purchases",
     "/expenses": "Expenses",
     "/reports": "Reports",

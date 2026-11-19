@@ -634,6 +634,28 @@ class AccountPayment(Base):
         return self.whatsapp_receipt.status if self.whatsapp_receipt else None
 
 
+class ManualPaymentReceipt(Base):
+    __tablename__ = "manual_payment_receipts"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_manual_payment_receipt_amount_positive"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    receipt_number: Mapped[str] = mapped_column(String(40), unique=True, nullable=False, index=True)
+    business_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    payer_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    payer_phone: Mapped[str | None] = mapped_column(String(40))
+    purpose: Mapped[str] = mapped_column(String(240), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    payment_method: Mapped[str] = mapped_column(String(40), nullable=False)
+    paid_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    created_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class WhatsAppReceipt(Base):
     __tablename__ = "whatsapp_receipts"
     __table_args__ = (

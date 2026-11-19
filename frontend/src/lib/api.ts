@@ -28,6 +28,8 @@ import type {
   TransactionPayment,
   TransactionHistoryEntry,
   PaymentEvidence,
+  ManualPaymentReceipt,
+  ManualPaymentReceiptList,
   User,
 } from "../types";
 
@@ -321,6 +323,24 @@ export const api = {
 
   accountPayments(): Promise<AccountPaymentHistory[]> {
     return request<AccountPaymentHistory[]>("/account-payments");
+  },
+
+  manualPaymentReceipts(): Promise<ManualPaymentReceiptList> {
+    return request<ManualPaymentReceiptList>("/manual-receipts");
+  },
+
+  createManualPaymentReceipt(receipt: {
+    payer_name: string;
+    payer_phone: string | null;
+    purpose: string;
+    amount: string;
+    payment_method: string;
+    paid_on: string;
+  }): Promise<ManualPaymentReceipt> {
+    return request<ManualPaymentReceipt>("/manual-receipts", {
+      method: "POST",
+      body: JSON.stringify(receipt),
+    });
   },
 
   paymentReminders(): Promise<PaymentReminder[]> {

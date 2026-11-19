@@ -218,6 +218,27 @@ export interface TransactionPayment {
   whatsapp_receipt_status: string | null;
 }
 
+export interface ManualPaymentReceipt {
+  id: string;
+  receipt_number: string;
+  business_name: string;
+  currency: string;
+  payer_name: string;
+  payer_phone: string | null;
+  purpose: string;
+  amount: string;
+  payment_method: string;
+  paid_on: string;
+  created_at: string;
+}
+
+export interface ManualPaymentReceiptList {
+  receipts: ManualPaymentReceipt[];
+  business_name: string;
+  currency: string;
+  payment_methods: string[];
+}
+
 export interface PaymentEvidence {
   id: string;
   filename: string;

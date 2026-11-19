@@ -17,6 +17,7 @@ The repository contains a working local application and the core transaction sli
 - Completed retail and wholesale sales with invoice snapshots, applicable price tiers, atomic stock reduction, and protection against negative stock.
 - Supplier purchases with stock increases, purchase-cost updates, supplier references, and atomic inventory movements.
 - Manual, append-only payments against one sale/purchase invoice or a customer/supplier account balance, including partial payments and outstanding balances. Payment methods come from business settings; payments have no independent verification status or provider verification.
+- Standalone manual payment receipts with saved history, print/save-as-PDF output, and a prepared WhatsApp message. These are separate from invoices and do not affect invoice balances or financial reports.
 - Invoice due dates default to the sale date and can be changed when recording the sale. Customers can opt in to automatic WhatsApp payment receipts; provider acceptance and webhook-confirmed send/delivery/read/failure are recorded separately from payment status. Customer payment reminders still let staff prepare WhatsApp text and record follow-up activity manually.
 - Owner-only transaction history over the audit trail, including transaction, account, inventory, authentication, and settings events.
 - Manually recorded expenses, date-range totals, customer/supplier outstanding balances, low-stock counts, CSV summary exports, and browser-printable sales invoices.

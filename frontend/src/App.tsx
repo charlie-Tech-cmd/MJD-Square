@@ -23,6 +23,7 @@ import { hasPermission } from "./lib/permissions";
 import { ApiError } from "./lib/api";
 import { LandingPage } from "./pages/LandingPage";
 import { OwnerSetupPage } from "./pages/OwnerSetupPage";
+import { ManualReceiptsPage } from "./pages/ManualReceiptsPage";
 
 export default function App() {
   const queryClient = useQueryClient();
@@ -130,6 +131,14 @@ export default function App() {
               : <Navigate replace to="/dashboard" />
           }
           path="/sales"
+        />
+        <Route
+          element={
+            hasPermission(sessionQuery.data, "payments:read")
+              ? <ManualReceiptsPage user={sessionQuery.data} />
+              : <Navigate replace to="/dashboard" />
+          }
+          path="/manual-receipts"
         />
         <Route
           element={

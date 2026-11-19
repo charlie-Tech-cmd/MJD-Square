@@ -1,8 +1,9 @@
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.record_schemas import Money, NonnegativeMoney, Quantity
 
@@ -141,6 +142,63 @@ class AccountPaymentResponse(BaseModel):
 class AccountPaymentHistoryResponse(AccountPaymentResponse):
     account_type: Literal["customer", "supplier"]
     account_name: str
+
+
+class ManualPaymentReceiptCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    payer_name: str = Field(min_length=1, max_length=160)
+    payer_phone: str | None = Field(default=None, max_length=40)
+    purpose: str = Field(min_length=1, max_length=240)
+    amount: PositiveMoney
+    payment_method: str = Field(min_length=1, max_length=40)
+    paid_on: date
+
+    @model_validator(mode="after")
+    def clean_required_text(self) -> "ManualPaymentReceiptCreate":
+        for field in ("payer_name", "purpose", "payment_method"):
+            value = getattr(self, field).strip()
+            if not value:
+                raise ValueError(f"{field.replace('_', ' ').capitalize()} cannot be blank.")
+            setattr(self, field, value)
+        if self.payer_phone is not None:
+            self.payer_phone = self.payer_phone.strip() or None
+        return self
+
+    @field_validator("payer_phone")
+    @classmethod
+    def validate_payer_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = re.sub(r"[\s()-]", "", value)
+        if not value:
+            return None
+        if not re.fullmatch(r"\+?[1-9]\d{7,14}", value):
+            raise ValueError("Enter a phone number with its country code, such as +2348012345678.")
+        return value
+
+
+class ManualPaymentReceiptResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    receipt_number: str
+    business_name: str
+    currency: str
+    payer_name: str
+    payer_phone: str | None
+    purpose: str
+    amount: Money
+    payment_method: str
+    paid_on: date
+    created_at: datetime
+
+
+class ManualPaymentReceiptListResponse(BaseModel):
+    receipts: list[ManualPaymentReceiptResponse]
+    business_name: str
+    currency: str
+    payment_methods: list[str]
 
 
 class SaleLineResponse(BaseModel):
