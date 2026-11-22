@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LoaderCircle, MessageCircle, Printer, ReceiptText } from "lucide-react";
+import { Download, LoaderCircle, MessageCircle, Printer, ReceiptText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError, api } from "../lib/api";
 import { hasPermission } from "../lib/permissions";
+import { downloadReceiptPdf } from "../lib/receiptPdf";
 import type { ManualPaymentReceipt, User } from "../types";
 
 const todayInBusinessTimezone = () =>
@@ -67,6 +68,7 @@ function whatsappUrl(receipt: ManualPaymentReceipt): string | null {
 export function ManualReceiptsPage({ user }: ManualReceiptsPageProps) {
   const queryClient = useQueryClient();
   const [selectedReceiptId, setSelectedReceiptId] = useState("");
+  const [actionError, setActionError] = useState("");
   const receiptsQuery = useQuery({
     queryKey: ["manual-payment-receipts"],
     queryFn: api.manualPaymentReceipts,
@@ -140,15 +142,41 @@ export function ManualReceiptsPage({ user }: ManualReceiptsPageProps) {
     window.setTimeout(() => window.print(), 0);
   };
 
+  const downloadReceipt = async (receipt: ManualPaymentReceipt) => {
+    setActionError("");
+    try {
+      await downloadReceiptPdf({
+        businessName: receipt.business_name,
+        receiptNumber: receipt.receipt_number,
+        details: [
+          { label: "Received from", value: receipt.payer_name },
+          ...(receipt.payer_phone ? [{ label: "Phone", value: receipt.payer_phone }] : []),
+          { label: "Amount received", value: formatAmount(receipt.amount, receipt.currency) },
+          { label: "Payment for", value: receipt.purpose },
+          { label: "Payment method", value: receipt.payment_method },
+          { label: "Payment date", value: formatDate(receipt.paid_on) },
+        ],
+        disclaimer: "This documents a manually recorded payment and is not independently verified by a bank or payment provider.",
+      });
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? `Unable to download the receipt PDF: ${error.message}`
+          : "Unable to download the receipt PDF. Please try again.",
+      );
+    }
+  };
+
   return (
     <div className="settings-page records-page manual-receipts-page">
       <div className="page-heading">
         <div>
           <span className="eyebrow">PAYMENTS</span>
           <h1>Manual receipts</h1>
-          <p>Record a payment without linking it to an invoice, then print it or prepare a WhatsApp message.</p>
+          <p>Record a payment without linking it to an invoice, then download its PDF or prepare a WhatsApp message.</p>
         </div>
       </div>
+      {actionError && <p className="form-alert" role="alert">{actionError}</p>}
 
       <div className="manual-receipts-layout">
         <div className="manual-receipts-entry">
@@ -261,6 +289,9 @@ export function ManualReceiptsPage({ user }: ManualReceiptsPageProps) {
               <div className="manual-receipt-toolbar">
                 <span className="eyebrow">RECEIPT PREVIEW</span>
                 <div>
+                  <button className="button button-primary" onClick={() => void downloadReceipt(selectedReceipt)} type="button">
+                    <Download size={15} /> Download PDF
+                  </button>
                   <button className="button button-secondary" onClick={printReceipt} type="button">
                     <Printer size={15} /> Print / Save PDF
                   </button>

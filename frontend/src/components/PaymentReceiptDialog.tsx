@@ -1,6 +1,7 @@
 import { Download, MessageCircle, Printer, Share2, X } from "lucide-react";
 import { useState } from "react";
 import { formatNaira } from "../lib/format";
+import { downloadReceiptPdf } from "../lib/receiptPdf";
 
 export interface PaymentReceiptDetails {
   receiptNumber: string;
@@ -94,17 +95,44 @@ export function PaymentReceiptDialog({
     window.setTimeout(() => window.print(), 0);
   };
 
+  const downloadReceipt = async () => {
+    setShareError("");
+    try {
+      await downloadReceiptPdf({
+        businessName,
+        receiptNumber: receipt.receiptNumber,
+        details: [
+          { label: "Received from", value: receipt.customerName },
+          { label: "Amount received", value: formatNaira(receipt.amount) },
+          { label: "Payment method", value: receipt.method },
+          { label: "Payment date", value: formattedTimestamp(receipt.receivedAt) },
+          ...(receipt.reference ? [{ label: "Transaction reference", value: receipt.reference }] : []),
+          { label: "Invoice", value: receipt.invoiceNumber },
+          { label: "Invoice total", value: formatNaira(receipt.invoiceTotal) },
+          { label: "Balance remaining", value: formatNaira(receipt.balanceDue) },
+        ],
+        disclaimer: "Manually recorded—not independently verified by a bank or payment provider.",
+      });
+    } catch (error) {
+      setShareError(
+        error instanceof Error
+          ? `Unable to download the receipt PDF: ${error.message}`
+          : "Unable to download the receipt PDF. Please try again.",
+      );
+    }
+  };
+
   const shareReceipt = async () => {
     setShareError("");
     if (!navigator.share) {
-      setShareError("Device sharing is not available in this browser. Use Print / Save PDF or WhatsApp.");
+      setShareError("Device sharing is not available in this browser. Download the PDF or use WhatsApp.");
       return;
     }
     try {
       await navigator.share({ title: `Receipt ${receipt.receiptNumber}`, text: receiptText });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      setShareError("Unable to open device sharing. You can still print the receipt or use WhatsApp.");
+      setShareError("Unable to open device sharing. You can still download the PDF or use WhatsApp.");
     }
   };
 
@@ -161,6 +189,9 @@ export function PaymentReceiptDialog({
           </p>
         )}
         <div className="receipt-dialog-actions">
+          <button className="button button-primary" onClick={() => void downloadReceipt()} type="button">
+            <Download size={15} /> Download PDF
+          </button>
           <button className="button button-secondary" onClick={printReceipt} type="button">
             <Printer size={15} /> Print / Save PDF
           </button>
@@ -173,7 +204,7 @@ export function PaymentReceiptDialog({
             </a>
           ) : (
             <span className="receipt-share-hint">
-              <Download size={14} /> No valid customer phone number for WhatsApp.
+              No valid customer phone number for WhatsApp.
             </span>
           )}
         </div>
