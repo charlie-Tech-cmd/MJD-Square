@@ -129,6 +129,23 @@ def test_development_preserves_localhost_http_origin():
     assert configured.allowed_origins == ["http://localhost:5173"]
 
 
+def test_backblaze_b2_environment_names_are_supported():
+    configured = Settings(
+        _env_file=None,
+        B2_REGION="eu-central-003",
+        B2_BUCKET="mjd-payment-receipts",
+        B2_APPLICATION_KEY_ID="test-key-id",
+        B2_APPLICATION_KEY="test-key",
+        B2_S3_ENDPOINT_URL="https://s3.eu-central-003.backblazeb2.com",
+    )
+
+    assert configured.s3_region == "eu-central-003"
+    assert configured.s3_bucket == "mjd-payment-receipts"
+    assert configured.s3_access_key_id == "test-key-id"
+    assert configured.s3_secret_access_key == "test-key"
+    assert configured.s3_endpoint_url == "https://s3.eu-central-003.backblazeb2.com"
+
+
 def test_production_requires_a_long_owner_setup_token():
     with pytest.raises(ValidationError, match="OWNER_SETUP_TOKEN"):
         Settings(

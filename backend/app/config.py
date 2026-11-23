@@ -66,11 +66,38 @@ class Settings(BaseSettings):
             "BREVO_SENDER_EMAIL",
         ),
     )
-    s3_endpoint_url: str | None = None
-    s3_region: str | None = None
-    s3_bucket: str | None = None
-    s3_access_key_id: str | None = None
-    s3_secret_access_key: str | None = None
+    s3_endpoint_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "S3_ENDPOINT_URL",
+            "B2_S3_ENDPOINT_URL",
+            "BACKBLAZE_S3_ENDPOINT_URL",
+        ),
+    )
+    s3_region: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("S3_REGION", "B2_REGION", "BACKBLAZE_REGION"),
+    )
+    s3_bucket: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("S3_BUCKET", "B2_BUCKET", "BACKBLAZE_BUCKET"),
+    )
+    s3_access_key_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "S3_ACCESS_KEY_ID",
+            "B2_APPLICATION_KEY_ID",
+            "BACKBLAZE_APPLICATION_KEY_ID",
+        ),
+    )
+    s3_secret_access_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "S3_SECRET_ACCESS_KEY",
+            "B2_APPLICATION_KEY",
+            "BACKBLAZE_APPLICATION_KEY",
+        ),
+    )
     whatsapp_access_token: str | None = None
     whatsapp_phone_number_id: str | None = None
     whatsapp_api_version: str | None = None
