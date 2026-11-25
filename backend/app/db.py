@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import logging
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -8,6 +9,17 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.config import ROOT_DIR, settings
 
 database_url = make_url(settings.database_url)
+
+logger = logging.getLogger(__name__)
+logger.warning(
+    "DATABASE DIAGNOSTIC: environment=%s driver=%s host=%s port=%s database=%s username=%s",
+    settings.app_env,
+    database_url.drivername,
+    database_url.host,
+    database_url.port,
+    database_url.database,
+    database_url.username,
+)
 if (
     database_url.get_backend_name() == "sqlite"
     and database_url.database not in {None, ":memory:"}
