@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LandingPage } from "./LandingPage";
+
+afterEach(cleanup);
 
 describe("LandingPage", () => {
   it("introduces MJD Square's buying and selling business and values", () => {
@@ -23,6 +25,10 @@ describe("LandingPage", () => {
     expect(screen.getByRole("heading", { name: "Customer satisfaction" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Integrity" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Staff sign in" })).toHaveLength(3);
+    expect(screen.getByRole("link", { name: "First-time owner setup" })).toHaveAttribute(
+      "href",
+      "/setup",
+    );
   });
 
   it("offers signed-in users a link to their workspace", () => {
@@ -33,5 +39,6 @@ describe("LandingPage", () => {
     );
 
     expect(screen.getAllByRole("link", { name: "Open your workspace" })).toHaveLength(3);
+    expect(screen.queryByRole("link", { name: "First-time owner setup" })).not.toBeInTheDocument();
   });
 });

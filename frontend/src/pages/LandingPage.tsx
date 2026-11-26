@@ -48,6 +48,7 @@ export function LandingPage({ signedIn }: LandingPageProps) {
         <nav aria-label="Main navigation" className="landing-nav">
           <a href="#how-it-works">How it works</a>
           <a href="#our-values">Our values</a>
+          {!signedIn && <Link to="/setup">First-time owner setup</Link>}
         </nav>
         <Link className="landing-signin" to="/sign-in">
           {workspaceLabel}
