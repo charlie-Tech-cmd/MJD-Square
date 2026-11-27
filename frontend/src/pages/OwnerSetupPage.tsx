@@ -12,7 +12,8 @@ import { ApiError, api } from "../lib/api";
 const schema = z.object({
   setup_token: z.string().min(32, "Enter the setup key provided by your administrator."),
   full_name: z.string().trim().min(1, "Enter your name.").max(160),
-  email: z.email("Enter a valid email address."),
+  phone: z.string().trim().min(7, "Enter your phone number.").max(40),
+  email: z.union([z.email("Enter a valid email address."), z.literal("")]),
   password: z.string().min(12, "Use at least 12 characters.").max(128),
   confirm_password: z.string().min(1, "Confirm your password."),
 }).refine((values) => values.password === values.confirm_password, {
@@ -32,10 +33,10 @@ export function OwnerSetupPage() {
   const [complete, setComplete] = useState(false);
   const form = useForm<Values>({ resolver: zodResolver(schema) });
 
-  const submit = form.handleSubmit(async ({ setup_token, full_name, email, password }) => {
+  const submit = form.handleSubmit(async ({ setup_token, full_name, phone, email, password }) => {
     setError("");
     try {
-      await api.setupOwner({ setup_token, full_name, email, password });
+      await api.setupOwner({ setup_token, full_name, phone, email: email || null, password });
       setComplete(true);
       await setupStatus.refetch();
     } catch (reason) {
@@ -71,7 +72,7 @@ export function OwnerSetupPage() {
             <h2>{complete ? "Workspace ready" : "Create the first owner account"}</h2>
             <p>
               {complete
-                ? "Your owner account is ready. Sign in with the email and password you just created."
+                ? "Your owner account is ready. Sign in with the phone number and password you just created."
                 : "This one-time setup is available only on a fresh deployment."}
             </p>
           </div>
@@ -121,9 +122,15 @@ export function OwnerSetupPage() {
                 {form.formState.errors.full_name && <small className="field-error">{form.formState.errors.full_name.message}</small>}
               </label>
               <label className="field">
-                <span>Email address</span>
+                <span>Phone number</span>
+                <input autoComplete="tel" inputMode="tel" type="tel" aria-invalid={Boolean(form.formState.errors.phone)} {...form.register("phone")} />
+                {form.formState.errors.phone && <small className="field-error">{form.formState.errors.phone.message}</small>}
+              </label>
+              <label className="field">
+                <span>Email address (optional)</span>
                 <input autoComplete="email" inputMode="email" type="email" aria-invalid={Boolean(form.formState.errors.email)} {...form.register("email")} />
                 {form.formState.errors.email && <small className="field-error">{form.formState.errors.email.message}</small>}
+                <small className="field-help">Password recovery is only available when an email address is provided.</small>
               </label>
               <label className="field">
                 <span>Password</span>

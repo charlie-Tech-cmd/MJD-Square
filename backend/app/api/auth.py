@@ -107,16 +107,25 @@ def setup_owner(
             detail="Owner setup has already been completed.",
         )
 
-    email = str(payload.email).lower()
-    if db.scalar(select(User.id).where(User.email == email)) is not None:
+    email = str(payload.email).lower() if payload.email is not None else None
+    if email is not None and db.scalar(select(User.id).where(User.email == email)) is not None:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A user with that email address already exists.",
         )
+    if payload.phone is not None and db.scalar(
+        select(User.id).where(User.phone == payload.phone)
+    ) is not None:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with that phone number already exists.",
+        )
 
     user = User(
         email=email,
+        phone=payload.phone,
         full_name=payload.full_name,
         password_hash=hash_password(payload.password),
         role=owner,
@@ -143,7 +152,13 @@ def login(
     request: Request,
     db: Session = Depends(get_db),
 ) -> User:
-    email = str(payload.email).lower()
+    email = str(payload.email).lower() if payload.email is not None else None
+    identifier = email if email is not None else payload.phone
+    if identifier is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide either an email address or a phone number.",
+        )
     client_ip = get_client_ip(request)
 
     retention_cutoff = utc_now() - LOGIN_ATTEMPT_RETENTION
@@ -157,7 +172,7 @@ def login(
     failed_attempts = (
         db.scalar(
             select(func.count(LoginAttempt.id)).where(
-                LoginAttempt.email == email,
+                LoginAttempt.email == identifier,
                 LoginAttempt.client_ip == client_ip,
                 LoginAttempt.succeeded.is_(False),
                 LoginAttempt.occurred_at >= cutoff,
@@ -181,13 +196,17 @@ def login(
             detail="Too many sign-in attempts. Try again in 15 minutes.",
         )
 
-    user = db.scalar(select(User).where(User.email == email))
+    if email is not None:
+        user_query = select(User).where(User.email == email)
+    else:
+        user_query = select(User).where(User.phone == payload.phone)
+    user = db.scalar(user_query)
     password_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
     valid_password = verify_password(payload.password, password_hash)
     if not valid_password or user is None or not user.is_active:
         db.add(
             LoginAttempt(
-                email=email,
+                email=identifier,
                 client_ip=client_ip,
                 succeeded=False,
                 occurred_at=utc_now(),
@@ -196,7 +215,7 @@ def login(
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email or password is incorrect.",
+            detail="Email, phone, or password is incorrect.",
         )
 
     session_token = new_token()
@@ -210,7 +229,7 @@ def login(
     db.add(auth_session)
     db.add(
         LoginAttempt(
-            email=email,
+            email=identifier,
             client_ip=client_ip,
             succeeded=True,
             occurred_at=utc_now(),

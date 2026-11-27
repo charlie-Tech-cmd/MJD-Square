@@ -43,6 +43,27 @@ describe("password recovery API", () => {
     vi.unstubAllGlobals();
   });
 
+  describe("sign-in API", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("uses a phone number as the sign-in identifier when no email is provided", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        Response.json({ id: "owner-id", email: null, phone: "+2348031234567" }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      await api.login("+2348031234567", "a strong owner password");
+
+      const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(options.body as string)).toEqual({
+        phone: "+2348031234567",
+        password: "a strong owner password",
+      });
+    });
+  });
+
   it("requests a password reset without requiring a CSRF cookie", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       Response.json({

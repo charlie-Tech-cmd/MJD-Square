@@ -1,22 +1,57 @@
+import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    email: EmailStr
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, min_length=7, max_length=40)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("phone")
+    @classmethod
+    def normalize_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = re.sub(r"[\s().-]", "", value)
+        if not re.fullmatch(r"\+?\d{7,15}", normalized):
+            raise ValueError("Enter a valid phone number.")
+        return normalized
+
+    @model_validator(mode="after")
+    def require_one_login_identifier(self) -> "LoginRequest":
+        if (self.email is None) == (self.phone is None):
+            raise ValueError("Provide either an email address or a phone number.")
+        return self
 
 
 class OwnerSetupRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     setup_token: str = Field(min_length=32, max_length=256)
-    email: EmailStr
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, min_length=7, max_length=40)
     full_name: str = Field(min_length=1, max_length=160)
     password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("phone")
+    @classmethod
+    def normalize_phone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = re.sub(r"[\s().-]", "", value)
+        if not re.fullmatch(r"\+?\d{7,15}", normalized):
+            raise ValueError("Enter a valid phone number.")
+        return normalized
+
+    @model_validator(mode="after")
+    def require_email_or_phone(self) -> "OwnerSetupRequest":
+        if self.email is None and self.phone is None:
+            raise ValueError("Provide a phone number or an email address.")
+        return self
 
     @field_validator("full_name")
     @classmethod
@@ -47,7 +82,8 @@ class RoleResponse(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    email: EmailStr
+    email: EmailStr | None
+    phone: str | None
     full_name: str
     role: RoleResponse
 

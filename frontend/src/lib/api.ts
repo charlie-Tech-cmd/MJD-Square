@@ -113,10 +113,13 @@ export const api = {
     }
   },
 
-  login(email: string, password: string): Promise<User> {
+  login(identifier: string, password: string): Promise<User> {
+    const credentials = identifier.includes("@")
+      ? { email: identifier }
+      : { phone: identifier };
     return request<User>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ ...credentials, password }),
     });
   },
 
@@ -126,7 +129,8 @@ export const api = {
 
   setupOwner(payload: {
     setup_token: string;
-    email: string;
+    email: string | null;
+    phone: string;
     full_name: string;
     password: string;
   }): Promise<{ status: string }> {

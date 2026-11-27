@@ -65,6 +65,53 @@ def test_owner_setup_creates_first_owner_and_closes_setup(client, db_session, mo
     assert login_response.status_code == 200
 
 
+def test_owner_can_set_up_and_sign_in_with_phone_without_email(client, db_session, monkeypatch):
+    setup_token = "test-initial-owner-setup-token-0123456789"
+    monkeypatch.setattr("app.api.auth.settings.owner_setup_token", setup_token)
+
+    response = client.post(
+        "/api/v1/auth/setup-owner",
+        json={
+            "setup_token": setup_token,
+            "phone": "+234 803-123-4567",
+            "full_name": "Business Owner",
+            "password": "a strong owner password",
+        },
+    )
+
+    assert response.status_code == 201
+    owner = db_session.scalar(select(User).where(User.phone == "+2348031234567"))
+    assert owner is not None
+    assert owner.email is None
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={"phone": "+234 (803) 123-4567", "password": "a strong owner password"},
+    )
+
+    assert login_response.status_code == 200
+    assert login_response.json()["email"] is None
+    assert login_response.json()["phone"] == "+2348031234567"
+
+
+def test_login_requires_exactly_one_identifier(client):
+    missing = client.post(
+        "/api/v1/auth/login",
+        json={"password": "a strong owner password"},
+    )
+    both = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "owner@example.com",
+            "phone": "+2348031234567",
+            "password": "a strong owner password",
+        },
+    )
+
+    assert missing.status_code == 422
+    assert both.status_code == 422
+
+
 def test_owner_setup_rejects_invalid_key_and_is_unavailable_without_configuration(
     client, db_session, monkeypatch
 ):
@@ -164,7 +211,7 @@ def test_failed_password_is_generic_and_rate_limited(client, db_session):
             json={"email": "owner@example.com", "password": "wrong password"},
         )
         assert response.status_code == 401
-        assert response.json()["detail"] == "Email or password is incorrect."
+        assert response.json()["detail"] == "Email, phone, or password is incorrect."
 
     limited = client.post(
         "/api/v1/auth/login",

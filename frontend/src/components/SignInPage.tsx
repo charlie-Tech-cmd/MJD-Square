@@ -10,7 +10,7 @@ import { PasswordInput } from "./PasswordInput";
 import { Link } from "react-router-dom";
 
 const signInSchema = z.object({
-  email: z.email("Enter a valid email address."),
+  identifier: z.string().trim().min(1, "Enter your email address or phone number.").max(320),
   password: z.string().min(1, "Enter your password."),
 });
 
@@ -33,10 +33,10 @@ export function SignInPage({ onSignedIn }: SignInPageProps) {
     formState: { errors, isSubmitting },
   } = useForm<SignInValues>({ resolver: zodResolver(signInSchema) });
 
-  const submit = async ({ email, password }: SignInValues) => {
+  const submit = async ({ identifier, password }: SignInValues) => {
     setServerError("");
     try {
-      await api.login(email, password);
+      await api.login(identifier, password);
       onSignedIn();
     } catch (error) {
       setServerError(
@@ -76,16 +76,15 @@ export function SignInPage({ onSignedIn }: SignInPageProps) {
           </div>
           <form className="form-stack" onSubmit={handleSubmit(submit)} noValidate>
             <label className="field">
-              <span>Email address</span>
+              <span>Email address or phone number</span>
               <input
                 autoComplete="username"
-                inputMode="email"
-                placeholder="you@mjdsquare.com"
-                type="email"
-                aria-invalid={Boolean(errors.email)}
-                {...register("email")}
+                placeholder="you@mjdsquare.com or +234…"
+                type="text"
+                aria-invalid={Boolean(errors.identifier)}
+                {...register("identifier")}
               />
-              {errors.email && <small className="field-error">{errors.email.message}</small>}
+              {errors.identifier && <small className="field-error">{errors.identifier.message}</small>}
             </label>
             <label className="field">
               <span>Password</span>
@@ -95,7 +94,7 @@ export function SignInPage({ onSignedIn }: SignInPageProps) {
                 aria-invalid={Boolean(errors.password)}
                 {...register("password")}
               />
-              <Link className="auth-inline-link" to="/forgot-password">Forgot password?</Link>
+              <Link className="auth-inline-link" to="/forgot-password">Forgot password? (email accounts)</Link>
               {errors.password && <small className="field-error">{errors.password.message}</small>}
             </label>
             {serverError && <p className="form-alert" role="alert">{serverError}</p>}
